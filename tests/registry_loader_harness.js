@@ -119,8 +119,9 @@ const makePanel = (hass) => {
   panel.mountShell = () => {};
   panel.syncRefreshState = () => {};
   panel.buildRooms = () => {};
-  panel.renderRoute = () => {
+  panel.renderRoute = (...args) => {
     panel.__renderCount = (panel.__renderCount || 0) + 1;
+    panel.__lastRenderArgs = args;
   };
   return panel;
 };
@@ -216,6 +217,10 @@ const run = async () => {
   assert.equal(visited.at(-1), "/dashboard-rooms-v11/room-bathroom");
   navigationPanel._rooms = [{ slug: "bathroom", name: "Ванная" }];
   navigationPanel._houseRoute = "/dashboard-house-v12/home";
+  navigationPanel._activeRoute = { kind: "room", slug: "bathroom" };
+  const diagnosticsButton = fakeButton({ id: "diagnostics" });
+  assert.equal(navigationPanel.activateControl(diagnosticsButton), true);
+  assert.equal(visited.at(-1), "/dashboard-rooms-v11/room-bathroom/diagnostics");
   assert.equal(
     navigationPanel.headerModel({ kind: "overview" }).backPath,
     "/dashboard-house-v12/home",
@@ -309,6 +314,9 @@ const run = async () => {
   seamlessNavigationPanel.navigate("/dashboard-rooms-v11/room-attic");
   assert.equal(location.pathname, "/dashboard-rooms-v11/room-attic");
   assert.equal(seamlessNavigationPanel.__renderCount, 1);
+  assert.equal(seamlessNavigationPanel.__lastRenderArgs[0], true);
+  assert.equal(seamlessNavigationPanel.__lastRenderArgs[1].kind, "room");
+  assert.equal(seamlessNavigationPanel.__lastRenderArgs[1].slug, "attic");
   assert.equal(navigationEvents.length, 0);
   seamlessNavigationPanel.navigate("/dashboard-actions/home");
   assert.equal(location.pathname, "/dashboard-actions/home");

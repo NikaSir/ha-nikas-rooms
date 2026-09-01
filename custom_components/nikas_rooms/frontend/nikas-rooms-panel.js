@@ -1,5 +1,5 @@
 const ELEMENT_NAME = "nikas-rooms-v11";
-const UI_VERSION = "11.0.6";
+const UI_VERSION = "11.0.7";
 const PANEL_ROOT = "/dashboard-rooms-v11";
 const ROOT_PATH = "/dashboard-rooms-v11/rooms";
 const ZOOM_KEY = "nikas.rooms.zoom.v1";
@@ -248,6 +248,7 @@ class NikasRoomsV11 extends HTMLElement {
     this._registryFailed = false;
     this._mounted = false;
     this._routeKey = "";
+    this._activeRoute = null;
     this._diagnosticFilter = "*";
     this._stateFrame = null;
     this._viewCache = new Map();
@@ -507,7 +508,8 @@ class NikasRoomsV11 extends HTMLElement {
       return true;
     }
     if (button.id === "diagnostics") {
-      const room = this.route().slug ? this.room(this.route().slug) : null;
+      const currentRoute = this._activeRoute || this.route();
+      const room = currentRoute.slug ? this.room(currentRoute.slug) : null;
       if (room) this.navigate(`/dashboard-rooms-v11/room-${room.slug}/diagnostics`);
       return true;
     }
@@ -836,8 +838,9 @@ class NikasRoomsV11 extends HTMLElement {
       || window.location.pathname.startsWith(`${PANEL_ROOT}/`);
   }
 
-  route() {
-    const parts = window.location.pathname.split("/").filter(Boolean);
+  route(pathname = window.location.pathname) {
+    const cleanPath = String(pathname || "").split(/[?#]/, 1)[0];
+    const parts = cleanPath.split("/").filter(Boolean);
     if (parts[0] !== "dashboard-rooms-v11") return { kind: "overview" };
     if (parts[1]?.startsWith("room-")) {
       const slug = parts[1].slice(5);
@@ -856,8 +859,9 @@ class NikasRoomsV11 extends HTMLElement {
     if (current === path) return;
     const internal = path === PANEL_ROOT || path.startsWith(`${PANEL_ROOT}/`);
     if (internal) {
+      const targetRoute = this.route(path);
+      this.renderRoute(true, targetRoute);
       window.history.pushState(null, "", path);
-      this.renderRoute(true);
       return;
     }
     if (window.NikasPanelNavigation?.navigate?.(path)) return;
@@ -1032,13 +1036,14 @@ class NikasRoomsV11 extends HTMLElement {
     return icons[deviceClass] || "mdi:information-outline";
   }
 
-  renderRoute(force = false) {
-    if (!this.isRoomsPath()) return;
+  renderRoute(force = false, targetRoute = null) {
+    if (!targetRoute && !this.isRoomsPath()) return;
     this.mountShell();
-    const route = this.route();
+    const route = targetRoute || this.route();
+    this._activeRoute = route;
     const key = this.routeKey(route);
     this.updateHeader(route);
-    this.updateTabs();
+    this.updateTabs(route);
 
     if (!this._registries) {
       return;
@@ -1355,13 +1360,12 @@ class NikasRoomsV11 extends HTMLElement {
     if (title.getAttribute("aria-label") !== label) title.setAttribute("aria-label", label);
   }
 
-  updateTabs() {
+  updateTabs(route = this._activeRoute || this.route()) {
     const roomsButton = this.shadowRoot?.querySelector(`.tabs button[data-path="${ROOT_PATH}"]`);
     if (!roomsButton) return;
     roomsButton.classList.add("active");
     roomsButton.setAttribute("aria-current", "page");
-    roomsButton.disabled = window.location.pathname === ROOT_PATH
-      || window.location.pathname === PANEL_ROOT;
+    roomsButton.disabled = route.kind === "overview";
   }
 
   syncRefreshState() {
