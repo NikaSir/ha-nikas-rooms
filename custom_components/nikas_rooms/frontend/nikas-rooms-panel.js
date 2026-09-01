@@ -1,5 +1,5 @@
 const ELEMENT_NAME = "nikas-rooms-v11";
-const UI_VERSION = "11.0.8";
+const UI_VERSION = "11.0.9";
 const PANEL_ROOT = "/dashboard-rooms-v11";
 const ROOT_PATH = "/dashboard-rooms-v11/rooms";
 const ZOOM_KEY = "nikas.rooms.zoom.v1";
@@ -305,7 +305,7 @@ class NikasRoomsV11 extends HTMLElement {
     window.addEventListener("popstate", this._onLocation);
     window.addEventListener("resize", this._onResize, { passive: true });
     window.visualViewport?.addEventListener?.("resize", this._onResize, { passive: true });
-    if (this._registries) this.renderRoute(true);
+    if (this._registries) this.renderRoute(true, this._activeRoute || this.route());
     else this.loadRegistries();
   }
 
@@ -631,7 +631,7 @@ class NikasRoomsV11 extends HTMLElement {
     this._registries = snapshot;
     this.buildRooms();
     if (force) this._viewCache.clear();
-    this.renderRoute(true);
+    this.renderRoute(true, this._activeRoute || this.route());
     this.syncRefreshState();
     this.loadOptionalLabels(loadId);
   }
@@ -691,7 +691,8 @@ class NikasRoomsV11 extends HTMLElement {
         labels.map((label) => [label.label_id, label.name || label.label_id]),
       );
       for (const room of this._rooms) room.labelMap = labelMap;
-      if (this.route().kind === "diagnostics") this.renderRoute(true);
+      const activeRoute = this._activeRoute || this.route();
+      if (activeRoute.kind === "diagnostics") this.renderRoute(true, activeRoute);
     } catch (error) {
       console.info("[NikaS Rooms v11] optional label registry unavailable", error);
     }
@@ -741,7 +742,7 @@ class NikasRoomsV11 extends HTMLElement {
       this._registries = { areas, devices, entities, labels: [] };
       this.buildRooms();
       if (force) this._viewCache.clear();
-      this.renderRoute(true);
+      this.renderRoute(true, this._activeRoute || this.route());
       this._registryRetryAttempts = 0;
       this.loadOptionalLabels(loadId);
     } catch (error) {
@@ -857,17 +858,16 @@ class NikasRoomsV11 extends HTMLElement {
 
   navigate(path) {
     if (!path || !path.startsWith("/")) return;
-    const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-    if (current === path) return;
     const internal = path === PANEL_ROOT || path.startsWith(`${PANEL_ROOT}/`);
     if (internal) {
       const targetRoute = this.route(path);
+      const currentRoute = this._activeRoute || this.route();
+      if (this.routeKey(currentRoute) === this.routeKey(targetRoute)) return;
       if (this._navigationFrame !== null) window.cancelAnimationFrame(this._navigationFrame);
       this._navigationFrame = window.requestAnimationFrame(() => {
         this._navigationFrame = null;
         try {
           this.renderRoute(true, targetRoute);
-          window.history.pushState(null, "", path);
         } catch (error) {
           console.error("[NikaS Rooms v11] internal navigation failed", error);
           window.location.assign(path);
@@ -875,6 +875,8 @@ class NikasRoomsV11 extends HTMLElement {
       });
       return;
     }
+    const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    if (current === path) return;
     if (window.NikasPanelNavigation?.navigate?.(path)) return;
     window.history.pushState(null, "", path);
     window.dispatchEvent(new Event("location-changed"));
@@ -1330,7 +1332,7 @@ class NikasRoomsV11 extends HTMLElement {
     }
   }
 
-  headerModel(route = this.route()) {
+  headerModel(route = this._activeRoute || this.route()) {
     const room = route.slug ? this.room(route.slug) : null;
     if (route.kind === "overview") {
       return {
@@ -1353,7 +1355,7 @@ class NikasRoomsV11 extends HTMLElement {
     };
   }
 
-  updateHeader(route = this.route()) {
+  updateHeader(route = this._activeRoute || this.route()) {
     const title = this.shadowRoot?.querySelector(".title-return");
     const strong = title?.querySelector("strong");
     const secondary = title?.querySelector("small");

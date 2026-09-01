@@ -8,7 +8,7 @@
   "icon": "mdi:floor-plan",
   "owner": "nikas_rooms",
   "preferred_view": "rooms",
-  "ui_version": "11.0.8",
+  "ui_version": "11.0.9",
   "template_version": "1.9",
   "module_url": "nikas-rooms-panel.js",
   "frontend_delivery": {
@@ -59,6 +59,11 @@
     "mobile_touch": "direct_touchend_with_pointerup_fallback_and_deduplication",
     "movement_threshold_px": 10,
     "persistent_across_view_rebuilds": true
+  },
+  "internal_navigation": {
+    "model": "component_state_without_browser_history",
+    "levels": ["overview", "room", "diagnostics"],
+    "external_panels": "home_assistant_spa_navigation"
   },
   "runtime_contract": {
     "source": "home_assistant_registries_and_states",

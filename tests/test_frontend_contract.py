@@ -84,6 +84,9 @@ def test_frontend_has_autonomous_fixed_shell_and_gesture_zoom() -> None:
     assert "this._activeRoute = route" in text
     assert "this._navigationFrame = window.requestAnimationFrame" in text
     assert 'window.location.assign(path)' in text
+    navigate = text[text.index("navigate(path) {") : text.index("room(slug) {")]
+    internal = navigate.split("const current =", 1)[0]
+    assert "window.history.pushState" not in internal
     assert 'new Event("location-changed")' in text
     assert "import " not in text
     assert "import(" not in text
