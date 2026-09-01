@@ -78,16 +78,11 @@ def test_frontend_has_autonomous_fixed_shell_and_gesture_zoom() -> None:
     assert "blur(18px) saturate(130%)" in text
     assert "--mdc-icon-size:28px" in text
     assert "history.back(" not in text
-    assert 'path.startsWith(`${PANEL_ROOT}/`)' in text
-    assert "window.history.pushState" in text
-    assert "this.renderRoute(true, targetRoute)" in text
-    assert "this._activeRoute = route" in text
-    assert "this._navigationFrame = window.requestAnimationFrame" in text
     assert 'window.location.assign(path)' in text
     navigate = text[text.index("navigate(path) {") : text.index("room(slug) {")]
-    internal = navigate.split("const current =", 1)[0]
-    assert "window.history.pushState" not in internal
-    assert 'new Event("location-changed")' in text
+    assert "window.history.pushState" not in navigate
+    assert 'window.location.assign(path)' in navigate
+    assert 'new Event("location-changed")' not in text
     assert "import " not in text
     assert "import(" not in text
 

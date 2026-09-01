@@ -1,5 +1,5 @@
 const ELEMENT_NAME = "nikas-rooms-v11";
-const UI_VERSION = "11.0.9";
+const UI_VERSION = "11.0.10";
 const PANEL_ROOT = "/dashboard-rooms-v11";
 const ROOT_PATH = "/dashboard-rooms-v11/rooms";
 const ZOOM_KEY = "nikas.rooms.zoom.v1";
@@ -251,7 +251,6 @@ class NikasRoomsV11 extends HTMLElement {
     this._activeRoute = null;
     this._diagnosticFilter = "*";
     this._stateFrame = null;
-    this._navigationFrame = null;
     this._viewCache = new Map();
     this._zoom = this.loadZoom();
     this._gesture = null;
@@ -315,7 +314,6 @@ class NikasRoomsV11 extends HTMLElement {
     window.removeEventListener("resize", this._onResize);
     window.visualViewport?.removeEventListener?.("resize", this._onResize);
     if (this._stateFrame !== null) window.cancelAnimationFrame(this._stateFrame);
-    if (this._navigationFrame !== null) window.cancelAnimationFrame(this._navigationFrame);
     window.clearTimeout(this._toastTimer);
     window.clearTimeout(this._registryRetryTimer);
     this._registryRetryTimer = null;
@@ -858,28 +856,9 @@ class NikasRoomsV11 extends HTMLElement {
 
   navigate(path) {
     if (!path || !path.startsWith("/")) return;
-    const internal = path === PANEL_ROOT || path.startsWith(`${PANEL_ROOT}/`);
-    if (internal) {
-      const targetRoute = this.route(path);
-      const currentRoute = this._activeRoute || this.route();
-      if (this.routeKey(currentRoute) === this.routeKey(targetRoute)) return;
-      if (this._navigationFrame !== null) window.cancelAnimationFrame(this._navigationFrame);
-      this._navigationFrame = window.requestAnimationFrame(() => {
-        this._navigationFrame = null;
-        try {
-          this.renderRoute(true, targetRoute);
-        } catch (error) {
-          console.error("[NikaS Rooms v11] internal navigation failed", error);
-          window.location.assign(path);
-        }
-      });
-      return;
-    }
     const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
     if (current === path) return;
-    if (window.NikasPanelNavigation?.navigate?.(path)) return;
-    window.history.pushState(null, "", path);
-    window.dispatchEvent(new Event("location-changed"));
+    window.location.assign(path);
   }
 
   room(slug) {

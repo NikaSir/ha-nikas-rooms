@@ -315,24 +315,18 @@ const run = async () => {
     "the synthetic click after direct touchend must be deduplicated",
   );
 
-  const seamlessNavigationPanel = makePanel({});
-  seamlessNavigationPanel.navigate("/dashboard-rooms-v11/room-attic");
-  assert.equal(seamlessNavigationPanel.__renderCount, undefined);
-  await new Promise((resolve) => setTimeout(resolve, 10));
+  location.assigned = [];
+  const fullNavigationPanel = makePanel({});
+  fullNavigationPanel.navigate("/dashboard-rooms-v11/room-attic");
+  assert.deepEqual(location.assigned, ["/dashboard-rooms-v11/room-attic"]);
+  assert.equal(fullNavigationPanel.__renderCount, undefined);
   assert.equal(location.pathname, "/dashboard-rooms-v11/rooms");
-  assert.equal(seamlessNavigationPanel.__renderCount, 1);
-  assert.equal(seamlessNavigationPanel.__lastRenderArgs[0], true);
-  assert.equal(seamlessNavigationPanel.__lastRenderArgs[1].kind, "room");
-  assert.equal(seamlessNavigationPanel.__lastRenderArgs[1].slug, "attic");
   assert.equal(navigationEvents.length, 0);
-  seamlessNavigationPanel.navigate("/dashboard-rooms-v11/rooms");
-  await new Promise((resolve) => setTimeout(resolve, 10));
-  assert.equal(location.pathname, "/dashboard-rooms-v11/rooms");
-  assert.equal(seamlessNavigationPanel._activeRoute.kind, "overview");
-  assert.equal(seamlessNavigationPanel.__renderCount, 2);
-  seamlessNavigationPanel.navigate("/dashboard-actions/home");
-  assert.equal(location.pathname, "/dashboard-actions/home");
-  assert.equal(navigationEvents.at(-1).type, "location-changed");
+  fullNavigationPanel.navigate("/dashboard-actions/home");
+  assert.deepEqual(location.assigned, [
+    "/dashboard-rooms-v11/room-attic",
+    "/dashboard-actions/home",
+  ]);
 
   const diagnosticsMarkupPanel = makePanel({
     states: {
@@ -356,18 +350,6 @@ const run = async () => {
   });
   assert.match(diagnosticsMarkup, /Датчик чердака/);
   assert.match(diagnosticsMarkup, /21[,.]4 °C/);
-
-  const failedNavigationPanel = makePanel({});
-  failedNavigationPanel.renderRoute = () => { throw new Error("render failed"); };
-  const originalConsoleError = console.error;
-  console.error = () => {};
-  try {
-    failedNavigationPanel.navigate("/dashboard-rooms-v11/room-greenhouse");
-    await new Promise((resolve) => setTimeout(resolve, 10));
-  } finally {
-    console.error = originalConsoleError;
-  }
-  assert.deepEqual(location.assigned, ["/dashboard-rooms-v11/room-greenhouse"]);
 
   console.log("registry loader and mobile activation harness passed");
   process.exit(0);
