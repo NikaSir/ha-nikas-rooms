@@ -1,0 +1,63 @@
+{
+  "id": "rooms_v11",
+  "title": "Помещения",
+  "path": "/dashboard-rooms-v11",
+  "entry_route": "/dashboard-rooms-v11/rooms",
+  "preserved_yaml_route": "/dashboard-rooms/rooms",
+  "parent_route": "/dashboard-house-v11/home",
+  "icon": "mdi:floor-plan",
+  "owner": "nikas_rooms",
+  "preferred_view": "rooms",
+  "ui_version": "11.0.0",
+  "template_version": "1.9",
+  "module_url": "nikas-rooms-panel.js",
+  "frontend_delivery": {
+    "mode": "self_contained_bundle",
+    "runtime_imports": false,
+    "cross_repository_runtime_dependencies": false
+  },
+  "rendering": {
+    "stable_shell_dom": true,
+    "shadow_root_inner_html": "initial_mount_only",
+    "telemetry_updates": "patch_existing_nodes",
+    "registry_refresh": "replace_work_views_only",
+    "visited_views": "lazy_dom_cache_and_reattach_same_subtree",
+    "initial_state": "fixed_shell_with_loading_message",
+    "unknown_unavailable": "explicit_no_data",
+    "hass_updates": "coalesced_to_one_animation_frame"
+  },
+  "shell": {
+    "header_left_action": "hass-toggle-menu",
+    "header_center_lines": ["title", "ui_version"],
+    "header_history_back_allowed": false,
+    "header_grid_px": [52, 0, 52],
+    "header_button_px": 44,
+    "header_icon_px": 25,
+    "bottom_tabs": ["home", "rooms", "actions", "infrastructure"],
+    "bottom_tab_columns": 4,
+    "bottom_tab_min_height_px": 52,
+    "bottom_icon_px": 28,
+    "safe_area_once": true,
+    "phone_shell": "fixed_host_three_row_grid",
+    "outer_document_scroll": false
+  },
+  "zoom": {
+    "viewport_count": 1,
+    "min_percent": 75,
+    "max_percent": 200,
+    "default_percent": 100,
+    "controls": "gesture_only",
+    "reset": "two_finger_double_tap",
+    "snap_percent": [97, 103],
+    "persistent": true,
+    "native_vertical_scroll_at_100_percent": true,
+    "one_finger_pan": "scale_above_100_only"
+  },
+  "runtime_contract": {
+    "source": "home_assistant_registries_and_states",
+    "fixed_entity_ids": false,
+    "commands": "native_more_info_only",
+    "missing_data": "explicit_no_data"
+  }
+}
+

@@ -1,0 +1,15 @@
+{
+  "title": "NikaS Rooms",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Панель «Помещения»",
+        "description": "Добавить новую автономную панель по адресу /dashboard-rooms-v11/rooms. Существующая YAML-панель /dashboard-rooms/rooms останется без изменений."
+      }
+    },
+    "abort": {
+      "already_configured": "Панель «Помещения» уже добавлена."
+    }
+  }
+}
+

@@ -1,0 +1,67 @@
+apiVersion: nikas.home/v1
+kind: PanelContract
+metadata:
+  id: rooms_v11
+  title: Помещения
+  owner: nikas_rooms
+spec:
+  repository: NikaSir/ha-nikas-rooms
+  route:
+    panel_root: /dashboard-rooms-v11
+    entry_route: /dashboard-rooms-v11/rooms
+    preserved_yaml_route: /dashboard-rooms/rooms
+    safe_return_route: /dashboard-house-v11/home
+  source_reference:
+    file: references/Home_Assistant_Rooms_v10_8_18_PRIMARY_CLIMATE_LABEL.yaml
+    sha256: a9bceb0a48edd0932e6099149d55e5bde5bc9f6b427b906a4648c493229149a0
+    source_ui_version: 10.8.18
+  ui:
+    version: 11.0.0
+    standard: "1.9"
+    frontend_bundle: nikas-rooms-panel.js
+    autonomous: true
+  data_model:
+    hierarchy: [area, device, entity, labels]
+    registries:
+      - config/area_registry/list
+      - config/device_registry/list
+      - config/entity_registry/list
+      - config/label_registry/list
+    primary_climate_label: datchik_klimata_pomeshcheniia
+    admission_labels:
+      active: v_ekspluatatsii
+      service: na_obsluzhivanii
+      replacement: trebuet_zameny
+    excluded_from_operational_view:
+      - rezerv
+      - vyvedeno_iz_ekspluatatsii
+    state_priority:
+      - alarm
+      - unavailable
+      - opening
+      - activity
+      - calm
+  commands:
+    policy: native_more_info_only
+    direct_toggle: false
+    direct_service_calls: false
+  rooms:
+    - {slug: bathroom, number: "01", name: Ванная, floor: 2}
+    - {slug: bedroom, number: "02", name: Спальня, floor: 2}
+    - {slug: wardrobe, number: "03", name: Гардероб, floor: 2}
+    - {slug: sasha, number: "04", name: У Саши, floor: 2}
+    - {slug: ilya, number: "05", name: У Ильи, floor: 2}
+    - {slug: stairs, number: "06", name: Лестница, floor: 2}
+    - {slug: corridor, number: "07", name: Коридор, floor: 2}
+    - {slug: hall, number: "08", name: Холл, floor: 2}
+    - {slug: boiler, number: "09", name: Котельная, floor: 1}
+    - {slug: kitchen, number: "10", name: Кухня, floor: 1}
+    - {slug: dining, number: "11.1", name: Столовая, floor: 1}
+    - {slug: living, number: "11.2", name: Гостиная, floor: 1}
+    - {slug: toilet, number: "12", name: Туалет, floor: 1}
+    - {slug: vestibule, number: "13", name: Тамбур, floor: 1}
+    - {slug: veranda, number: "14", name: Веранда, floor: 1}
+    - {slug: garage, number: "15", name: Гараж, floor: 1}
+    - {slug: attic, number: "16", name: Чердак, floor: 0}
+    - {slug: greenhouse, number: "17", name: Теплица, floor: 0}
+

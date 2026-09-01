@@ -1,0 +1,26 @@
+{
+  "version": "1.9",
+  "navigation_contract_version": "1.1",
+  "role": "base",
+  "standard_path": "docs/NIKAS_SPECIALIZED_PANEL_UI_STANDARD.md",
+  "navigation_contract_path": "docs/NIKAS_PANEL_NAVIGATION_CONTRACT.md",
+  "runtime_files": [
+    "custom_components/nikas_rooms/frontend/nikas-rooms-panel.js"
+  ],
+  "production_entrypoint": "custom_components/nikas_rooms/frontend/nikas-rooms-panel.js",
+  "ui_version": "11.0.0",
+  "panel_root": "/dashboard-rooms-v11",
+  "entry_route": "/dashboard-rooms-v11/rooms",
+  "preserved_route": "/dashboard-rooms/rooms",
+  "reference_source": "references/Home_Assistant_Rooms_v10_8_18_PRIMARY_CLIMATE_LABEL.yaml",
+  "reference_sha256": "a9bceb0a48edd0932e6099149d55e5bde5bc9f6b427b906a4648c493229149a0",
+  "bundle_contract": {
+    "autonomous": true,
+    "runtime_imports": false,
+    "deterministic": true,
+    "cache_busting": "ui_version"
+  },
+  "data_source": "Home Assistant Area, Device, Entity and Label registries plus hass.states",
+  "command_policy": "No direct toggle or service call; open native Home Assistant more-info only"
+}
+
