@@ -47,11 +47,8 @@ const location = {
   pathname: "/dashboard-rooms-v11/rooms",
   search: "",
   hash: "",
-  assigned: [],
-  assign(pathname) {
-    this.assigned.push(pathname);
-  },
 };
+const navigationEvents = [];
 
 const context = {
   console,
@@ -88,7 +85,17 @@ const context = {
   },
   window: {
     location,
-    history: { replaceState: () => {}, pushState: () => {} },
+    history: {
+      replaceState: () => {},
+      pushState: (_state, _title, target) => {
+        const url = new URL(target, location.origin);
+        location.href = url.href;
+        location.pathname = url.pathname;
+        location.search = url.search;
+        location.hash = url.hash;
+      },
+    },
+    dispatchEvent: (event) => navigationEvents.push(event),
     addEventListener: () => {},
     removeEventListener: () => {},
     setTimeout,
@@ -207,6 +214,20 @@ const run = async () => {
   assert.equal(visited.at(-1), "/dashboard-house-v12/home");
   assert.equal(navigationPanel.activateControl(roomButton), true);
   assert.equal(visited.at(-1), "/dashboard-rooms-v11/room-bathroom");
+  navigationPanel._rooms = [{ slug: "bathroom", name: "Ванная" }];
+  navigationPanel._houseRoute = "/dashboard-house-v12/home";
+  assert.equal(
+    navigationPanel.headerModel({ kind: "overview" }).backPath,
+    "/dashboard-house-v12/home",
+  );
+  assert.equal(
+    navigationPanel.headerModel({ kind: "room", slug: "bathroom" }).backPath,
+    "/dashboard-rooms-v11/rooms",
+  );
+  assert.equal(
+    navigationPanel.headerModel({ kind: "diagnostics", slug: "bathroom" }).backPath,
+    "/dashboard-rooms-v11/room-bathroom",
+  );
   assert.equal(
     navigationPanel.actionButton({ composedPath: () => [roomButton, navigationPanel.shadowRoot] }),
     roomButton,
@@ -284,9 +305,14 @@ const run = async () => {
     "the synthetic click after direct touchend must be deduplicated",
   );
 
-  const hardNavigationPanel = makePanel({});
-  hardNavigationPanel.navigate("/dashboard-rooms-v11/room-attic");
-  assert.deepEqual(location.assigned, ["/dashboard-rooms-v11/room-attic"]);
+  const seamlessNavigationPanel = makePanel({});
+  seamlessNavigationPanel.navigate("/dashboard-rooms-v11/room-attic");
+  assert.equal(location.pathname, "/dashboard-rooms-v11/room-attic");
+  assert.equal(seamlessNavigationPanel.__renderCount, 1);
+  assert.equal(navigationEvents.length, 0);
+  seamlessNavigationPanel.navigate("/dashboard-actions/home");
+  assert.equal(location.pathname, "/dashboard-actions/home");
+  assert.equal(navigationEvents.at(-1).type, "location-changed");
 
   console.log("registry loader and mobile activation harness passed");
   process.exit(0);

@@ -36,10 +36,10 @@ def main() -> None:
     require(len(reference.get("views", [])) == 19, "reference YAML must contain overview plus 18 rooms")
 
     require(manifest["domain"] == "nikas_rooms", "integration domain drift")
-    require(manifest["version"] == "0.1.5", "integration version drift")
-    require(panel_manifest["ui_version"] == "11.0.5", "panel UI version drift")
-    require(standard["ui_version"] == "11.0.5", "standard UI version drift")
-    require(contract["spec"]["ui"]["version"] == "11.0.5", "contract UI version drift")
+    require(manifest["version"] == "0.1.6", "integration version drift")
+    require(panel_manifest["ui_version"] == "11.0.6", "panel UI version drift")
+    require(standard["ui_version"] == "11.0.6", "standard UI version drift")
+    require(contract["spec"]["ui"]["version"] == "11.0.6", "contract UI version drift")
     require(panel_manifest["entry_route"] == "/dashboard-rooms-v11/rooms", "entry route drift")
     require(panel_manifest["preserved_yaml_route"] == "/dashboard-rooms/rooms", "preserved route drift")
 
@@ -60,10 +60,7 @@ def main() -> None:
         and "this.navigate(this.houseRoute())" in source,
         "new House panel route resolution missing",
     )
-    require(
-        "window.location.assign(path)" in source and "window.history.pushState" not in source,
-        "iOS-safe hard navigation missing",
-    )
+    require("this.renderRoute(true)" in source, "in-panel navigation must render immediately")
     require("callService(" not in source and ".turn_on" not in source, "direct commands are forbidden")
     require("/dashboard-rooms/room-" not in source, "frontend must not navigate into preserved YAML")
 

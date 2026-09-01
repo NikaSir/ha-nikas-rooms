@@ -1,5 +1,5 @@
 const ELEMENT_NAME = "nikas-rooms-v11";
-const UI_VERSION = "11.0.5";
+const UI_VERSION = "11.0.6";
 const PANEL_ROOT = "/dashboard-rooms-v11";
 const ROOT_PATH = "/dashboard-rooms-v11/rooms";
 const ZOOM_KEY = "nikas.rooms.zoom.v1";
@@ -854,11 +854,15 @@ class NikasRoomsV11 extends HTMLElement {
     if (!path || !path.startsWith("/")) return;
     const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
     if (current === path) return;
-    if (typeof window.location.assign === "function") {
-      window.location.assign(path);
+    const internal = path === PANEL_ROOT || path.startsWith(`${PANEL_ROOT}/`);
+    if (internal) {
+      window.history.pushState(null, "", path);
+      this.renderRoute(true);
       return;
     }
-    window.location.href = path;
+    if (window.NikasPanelNavigation?.navigate?.(path)) return;
+    window.history.pushState(null, "", path);
+    window.dispatchEvent(new Event("location-changed"));
   }
 
   room(slug) {
@@ -1313,7 +1317,11 @@ class NikasRoomsV11 extends HTMLElement {
   headerModel(route = this.route()) {
     const room = route.slug ? this.room(route.slug) : null;
     if (route.kind === "overview") {
-      return { title: "Помещения", subtitle: `UI v${UI_VERSION}`, backPath: this._returnRoute };
+      return {
+        title: "Помещения",
+        subtitle: `UI v${UI_VERSION}`,
+        backPath: this._houseRoute || SAFE_DEFAULT_ROUTE,
+      };
     }
     if (route.kind === "diagnostics") {
       return {
