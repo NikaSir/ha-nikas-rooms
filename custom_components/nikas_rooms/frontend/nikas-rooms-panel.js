@@ -1,5 +1,5 @@
 const ELEMENT_NAME = "nikas-rooms-v11";
-const UI_VERSION = "11.0.0";
+const UI_VERSION = "11.0.1";
 const PANEL_ROOT = "/dashboard-rooms-v11";
 const ROOT_PATH = "/dashboard-rooms-v11/rooms";
 const ZOOM_KEY = "nikas.rooms.zoom.v1";
@@ -7,6 +7,9 @@ const RETURN_ROUTE_KEY = "nikas.rooms.return_route.v1";
 const SOURCE_ROUTE_KEY = "nikas.specialized.source_route.v1";
 const SOURCE_ROUTE_AT_KEY = "nikas.specialized.source_route_at.v1";
 const SOURCE_ROUTE_TTL_MS = 30_000;
+const REGISTRY_TIMEOUT_MS = 8_000;
+const LABEL_REGISTRY_TIMEOUT_MS = 4_000;
+const REGISTRY_RETRY_DELAY_MS = 2_000;
 const SAFE_DEFAULT_ROUTE = "/dashboard-house-v11/home";
 const ACTIVE_LABEL = "v_ekspluatatsii";
 const SERVICE_LABEL = "na_obsluzhivanii";
@@ -211,6 +214,9 @@ class NikasRoomsV11 extends HTMLElement {
     this._registries = null;
     this._rooms = [];
     this._loading = false;
+    this._registryLoadId = 0;
+    this._registryRetryTimer = null;
+    this._registryRetryAttempts = 0;
     this._mounted = false;
     this._routeKey = "";
     this._diagnosticFilter = "*";
@@ -235,7 +241,7 @@ class NikasRoomsV11 extends HTMLElement {
   set hass(value) {
     const first = !this._hass;
     this._hass = value;
-    if (first || !this._registries) this.loadRegistries();
+    if ((first || !this._registries) && !this._loading) this.loadRegistries();
     else this.scheduleStatePatch();
   }
 
@@ -259,6 +265,10 @@ class NikasRoomsV11 extends HTMLElement {
     window.visualViewport?.removeEventListener?.("resize", this._onResize);
     if (this._stateFrame !== null) window.cancelAnimationFrame(this._stateFrame);
     window.clearTimeout(this._toastTimer);
+    window.clearTimeout(this._registryRetryTimer);
+    this._registryRetryTimer = null;
+    this._registryLoadId += 1;
+    this._loading = false;
   }
 
   mountShell() {
@@ -319,31 +329,135 @@ class NikasRoomsV11 extends HTMLElement {
     this.applyTransform();
   }
 
+  registryTransport() {
+    if (typeof this._hass?.callWS === "function") {
+      return (message) => this._hass.callWS(message);
+    }
+    if (typeof this._hass?.connection?.sendMessagePromise === "function") {
+      return (message) => this._hass.connection.sendMessagePromise(message);
+    }
+    return null;
+  }
+
+  async registryRequest(type, timeoutMs = REGISTRY_TIMEOUT_MS) {
+    const transport = this.registryTransport();
+    if (!transport) throw new Error("Home Assistant WebSocket is not ready");
+
+    let timeoutId = null;
+    try {
+      return await Promise.race([
+        transport({ type }),
+        new Promise((_, reject) => {
+          timeoutId = window.setTimeout(
+            () => reject(new Error(`Registry request timed out: ${type}`)),
+            timeoutMs,
+          );
+        }),
+      ]);
+    } finally {
+      window.clearTimeout(timeoutId);
+    }
+  }
+
+  renderRegistryMessage(title, detail = "", retry = false) {
+    const canvas = this.shadowRoot?.getElementById("canvas");
+    if (!canvas) return;
+    canvas.innerHTML = `
+      <div class="loading registry-message">
+        <strong>${escapeHtml(title)}</strong>
+        ${detail ? `<small>${escapeHtml(detail)}</small>` : ""}
+        ${retry ? '<button type="button" data-registry-retry>Повторить</button>' : ""}
+      </div>`;
+    canvas.querySelector("[data-registry-retry]")?.addEventListener("click", () => {
+      this.loadRegistries(true);
+    });
+  }
+
+  scheduleRegistryRetry() {
+    if (this._registries || this._registryRetryTimer !== null || this._registryRetryAttempts >= 1) return;
+    this._registryRetryAttempts += 1;
+    this._registryRetryTimer = window.setTimeout(() => {
+      this._registryRetryTimer = null;
+      if (!this._registries && !this._loading && this.isConnected !== false) {
+        this.loadRegistries();
+      }
+    }, REGISTRY_RETRY_DELAY_MS);
+  }
+
+  async loadOptionalLabels(loadId) {
+    try {
+      const labels = await this.registryRequest(
+        "config/label_registry/list",
+        LABEL_REGISTRY_TIMEOUT_MS,
+      );
+      if (loadId !== this._registryLoadId || !this._registries || !Array.isArray(labels)) return;
+      this._registries.labels = labels;
+      const labelMap = new Map(
+        labels.map((label) => [label.label_id, label.name || label.label_id]),
+      );
+      for (const room of this._rooms) room.labelMap = labelMap;
+      if (this.route().kind === "diagnostics") this.renderRoute(true);
+    } catch (error) {
+      console.info("[NikaS Rooms v11] optional label registry unavailable", error);
+    }
+  }
+
   async loadRegistries(force = false) {
-    if (this._loading || !this._hass?.callWS) return;
+    if (this._loading) return;
     this.mountShell();
+    if (force) {
+      this._registryRetryAttempts = 0;
+      window.clearTimeout(this._registryRetryTimer);
+      this._registryRetryTimer = null;
+    }
+    if (!this.registryTransport()) {
+      if (!this._registries) {
+        this.renderRegistryMessage(
+          "Ожидание соединения с Home Assistant…",
+          "Панель повторит загрузку автоматически.",
+          true,
+        );
+      }
+      this.scheduleRegistryRetry();
+      return;
+    }
+
+    const loadId = ++this._registryLoadId;
     this._loading = true;
     this.syncRefreshState();
+    if (!this._registries) this.renderRegistryMessage("Загрузка помещений…");
     try {
-      const [areas, devices, entities, labels] = await Promise.all([
-        this._hass.callWS({ type: "config/area_registry/list" }),
-        this._hass.callWS({ type: "config/device_registry/list" }),
-        this._hass.callWS({ type: "config/entity_registry/list" }),
-        this._hass.callWS({ type: "config/label_registry/list" }).catch(() => []),
+      const [areas, devices, entities] = await Promise.all([
+        this.registryRequest("config/area_registry/list"),
+        this.registryRequest("config/device_registry/list"),
+        this.registryRequest("config/entity_registry/list"),
       ]);
-      this._registries = { areas, devices, entities, labels };
+      if (loadId !== this._registryLoadId) return;
+      if (![areas, devices, entities].every(Array.isArray)) {
+        throw new Error("Home Assistant returned an invalid registry response");
+      }
+      this._registries = { areas, devices, entities, labels: [] };
       this.buildRooms();
       if (force) this._viewCache.clear();
       this.renderRoute(true);
+      this._registryRetryAttempts = 0;
+      this.loadOptionalLabels(loadId);
     } catch (error) {
+      if (loadId !== this._registryLoadId) return;
       console.warn("[NikaS Rooms v11] registry load failed", error);
       if (!this._registries) {
-        const canvas = this.shadowRoot?.getElementById("canvas");
-        if (canvas) canvas.innerHTML = '<div class="loading">Не удалось прочитать реестр Home Assistant</div>';
+        this.renderRegistryMessage(
+          "Не удалось прочитать реестры Home Assistant",
+          "Проверьте соединение и повторите загрузку.",
+          true,
+        );
       }
+      this.scheduleRegistryRetry();
     } finally {
-      this._loading = false;
-      this.syncRefreshState();
+      if (loadId === this._registryLoadId) {
+        this._loading = false;
+        this.syncRefreshState();
+      }
     }
   }
 
@@ -1219,6 +1333,14 @@ class NikasRoomsV11 extends HTMLElement {
       }
       .zoom-toast.show{opacity:1;transform:translate(-50%,0)}
       .loading{padding:24px;text-align:center;color:var(--secondary-text-color,#666);font-size:14px}
+      .registry-message{display:grid;justify-items:center;gap:8px}
+      .registry-message strong{color:var(--primary-text-color,#222);font-size:16px}
+      .registry-message small{max-width:320px;font-size:13px;line-height:1.35}
+      .registry-message button{
+        min-height:40px;margin-top:4px;padding:8px 16px;border:1px solid var(--primary-color,#2196f3);
+        border-radius:13px;background:transparent;color:var(--primary-color,#2196f3);
+        font:inherit;font-weight:750
+      }
       .overview{min-height:100%;display:flex;flex-direction:column;justify-content:space-between;gap:6px}
       .floor h2{
         height:22px;margin:0 0 4px;display:flex;align-items:center;gap:7px;

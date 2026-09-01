@@ -22,7 +22,7 @@ PANEL_PRESERVED_YAML_ROUTE = "/dashboard-rooms/rooms"
 PANEL_PARENT_ROUTE = "/dashboard-house-v11/home"
 PANEL_ICON = "mdi:floor-plan"
 PANEL_WEB_COMPONENT = "nikas-rooms-v11"
-PANEL_UI_VERSION = "11.0.0"
+PANEL_UI_VERSION = "11.0.1"
 PANEL_TEMPLATE_VERSION = "1.9"
 PANEL_STATIC_URL = "/nikas_rooms_panel"
 PANEL_STATIC_REGISTERED = "panel_static_registered"
@@ -82,4 +82,3 @@ def async_unregister_panel(hass: HomeAssistant) -> None:
     domain_data = hass.data.setdefault(DOMAIN, {})
     if domain_data.pop(PANEL_ROUTE_REGISTERED, False):
         frontend.async_remove_panel(hass, PANEL_URL_PATH, warn_if_unknown=False)
-

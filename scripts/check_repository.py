@@ -36,10 +36,10 @@ def main() -> None:
     require(len(reference.get("views", [])) == 19, "reference YAML must contain overview plus 18 rooms")
 
     require(manifest["domain"] == "nikas_rooms", "integration domain drift")
-    require(manifest["version"] == "0.1.0", "integration version drift")
-    require(panel_manifest["ui_version"] == "11.0.0", "panel UI version drift")
-    require(standard["ui_version"] == "11.0.0", "standard UI version drift")
-    require(contract["spec"]["ui"]["version"] == "11.0.0", "contract UI version drift")
+    require(manifest["version"] == "0.1.1", "integration version drift")
+    require(panel_manifest["ui_version"] == "11.0.1", "panel UI version drift")
+    require(standard["ui_version"] == "11.0.1", "standard UI version drift")
+    require(contract["spec"]["ui"]["version"] == "11.0.1", "contract UI version drift")
     require(panel_manifest["entry_route"] == "/dashboard-rooms-v11/rooms", "entry route drift")
     require(panel_manifest["preserved_yaml_route"] == "/dashboard-rooms/rooms", "preserved route drift")
 
@@ -53,9 +53,9 @@ def main() -> None:
     require("/dashboard-rooms/room-" not in source, "frontend must not navigate into preserved YAML")
 
     subprocess.run(["node", "--check", str(FRONTEND)], check=True)
+    subprocess.run(["node", str(ROOT / "tests" / "registry_loader_harness.js")], check=True)
     print("repository checks passed")
 
 
 if __name__ == "__main__":
     main()
-

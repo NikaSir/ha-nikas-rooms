@@ -8,7 +8,7 @@
     "custom_components/nikas_rooms/frontend/nikas-rooms-panel.js"
   ],
   "production_entrypoint": "custom_components/nikas_rooms/frontend/nikas-rooms-panel.js",
-  "ui_version": "11.0.0",
+  "ui_version": "11.0.1",
   "panel_root": "/dashboard-rooms-v11",
   "entry_route": "/dashboard-rooms-v11/rooms",
   "preserved_route": "/dashboard-rooms/rooms",
@@ -23,4 +23,3 @@
   "data_source": "Home Assistant Area, Device, Entity and Label registries plus hass.states",
   "command_policy": "No direct toggle or service call; open native Home Assistant more-info only"
 }
-
