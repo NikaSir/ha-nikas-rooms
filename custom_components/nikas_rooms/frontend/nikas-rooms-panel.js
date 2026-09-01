@@ -1,5 +1,5 @@
 const ELEMENT_NAME = "nikas-rooms-v11";
-const UI_VERSION = "11.0.1";
+const UI_VERSION = "11.0.2";
 const PANEL_ROOT = "/dashboard-rooms-v11";
 const ROOT_PATH = "/dashboard-rooms-v11/rooms";
 const ZOOM_KEY = "nikas.rooms.zoom.v1";
@@ -217,6 +217,7 @@ class NikasRoomsV11 extends HTMLElement {
     this._registryLoadId = 0;
     this._registryRetryTimer = null;
     this._registryRetryAttempts = 0;
+    this._registryFailed = false;
     this._mounted = false;
     this._routeKey = "";
     this._diagnosticFilter = "*";
@@ -239,10 +240,22 @@ class NikasRoomsV11 extends HTMLElement {
   }
 
   set hass(value) {
-    const first = !this._hass;
+    const previous = this._hass;
     this._hass = value;
-    if ((first || !this._registries) && !this._loading) this.loadRegistries();
-    else this.scheduleStatePatch();
+    const snapshot = this.hassRegistrySnapshot();
+    const registriesChanged = !previous
+      || previous.areas !== value?.areas
+      || previous.devices !== value?.devices
+      || previous.entities !== value?.entities;
+    if (snapshot && (!this._registries || registriesChanged)) {
+      this.applyRegistrySnapshot(snapshot, Boolean(this._registries));
+      return;
+    }
+    if (!this._registries) {
+      if (!this._loading && !this._registryFailed) this.loadRegistries();
+      return;
+    }
+    this.scheduleStatePatch();
   }
 
   connectedCallback() {
@@ -339,6 +352,36 @@ class NikasRoomsV11 extends HTMLElement {
     return null;
   }
 
+  registryValues(value) {
+    if (Array.isArray(value)) return value;
+    if (value && typeof value === "object") return Object.values(value);
+    return null;
+  }
+
+  hassRegistrySnapshot() {
+    const areas = this.registryValues(this._hass?.areas);
+    const devices = this.registryValues(this._hass?.devices);
+    const entities = this.registryValues(this._hass?.entities);
+    if (!areas || !devices || !entities) return null;
+    return { areas, devices, entities, labels: [] };
+  }
+
+  applyRegistrySnapshot(snapshot, force = false) {
+    this.mountShell();
+    const loadId = ++this._registryLoadId;
+    this._loading = false;
+    this._registryFailed = false;
+    this._registryRetryAttempts = 0;
+    window.clearTimeout(this._registryRetryTimer);
+    this._registryRetryTimer = null;
+    this._registries = snapshot;
+    this.buildRooms();
+    if (force) this._viewCache.clear();
+    this.renderRoute(true);
+    this.syncRefreshState();
+    this.loadOptionalLabels(loadId);
+  }
+
   async registryRequest(type, timeoutMs = REGISTRY_TIMEOUT_MS) {
     const transport = this.registryTransport();
     if (!transport) throw new Error("Home Assistant WebSocket is not ready");
@@ -379,6 +422,7 @@ class NikasRoomsV11 extends HTMLElement {
     this._registryRetryTimer = window.setTimeout(() => {
       this._registryRetryTimer = null;
       if (!this._registries && !this._loading && this.isConnected !== false) {
+        this._registryFailed = false;
         this.loadRegistries();
       }
     }, REGISTRY_RETRY_DELAY_MS);
@@ -403,9 +447,15 @@ class NikasRoomsV11 extends HTMLElement {
   }
 
   async loadRegistries(force = false) {
-    if (this._loading) return;
     this.mountShell();
+    const snapshot = this.hassRegistrySnapshot();
+    if (snapshot) {
+      this.applyRegistrySnapshot(snapshot, force);
+      return;
+    }
+    if (this._loading) return;
     if (force) {
+      this._registryFailed = false;
       this._registryRetryAttempts = 0;
       window.clearTimeout(this._registryRetryTimer);
       this._registryRetryTimer = null;
@@ -424,6 +474,7 @@ class NikasRoomsV11 extends HTMLElement {
 
     const loadId = ++this._registryLoadId;
     this._loading = true;
+    this._registryFailed = false;
     this.syncRefreshState();
     if (!this._registries) this.renderRegistryMessage("Загрузка помещений…");
     try {
@@ -445,6 +496,7 @@ class NikasRoomsV11 extends HTMLElement {
     } catch (error) {
       if (loadId !== this._registryLoadId) return;
       console.warn("[NikaS Rooms v11] registry load failed", error);
+      this._registryFailed = true;
       if (!this._registries) {
         this.renderRegistryMessage(
           "Не удалось прочитать реестры Home Assistant",
@@ -491,7 +543,7 @@ class NikasRoomsV11 extends HTMLElement {
         device.area_id === area.area_id && !device.disabled_by);
       const areaDeviceIds = new Set(areaDevices.map((device) => device.id));
       const areaEntities = entities.filter((entity) => {
-        if (entity.disabled_by || entity.hidden_by) return false;
+        if (entity.disabled_by || entity.hidden_by || entity.hidden) return false;
         const effectiveArea = entity.area_id || deviceMap.get(entity.device_id)?.area_id || null;
         return effectiveArea === area.area_id
           && (!entity.device_id || areaDeviceIds.has(entity.device_id));

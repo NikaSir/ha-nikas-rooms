@@ -104,6 +104,30 @@ const responseFor = ({ type }) => (
 );
 
 const run = async () => {
+  const requestedTypes = [];
+  const frontendRegistries = makePanel({
+    areas: { kitchen: { area_id: "kitchen", name: "Кухня" } },
+    devices: {},
+    entities: {},
+    callWS: ({ type }) => {
+      requestedTypes.push(type);
+      return type === "config/label_registry/list" ? never : Promise.resolve([]);
+    },
+  });
+  await Promise.race([
+    frontendRegistries.loadRegistries(),
+    new Promise((_, reject) => setTimeout(
+      () => reject(new Error("preloaded Home Assistant registries were not used immediately")),
+      250,
+    )),
+  ]);
+  assert.equal(frontendRegistries.__renderCount, 1);
+  assert.equal(frontendRegistries._registries.areas.length, 1);
+  assert.deepEqual(
+    requestedTypes.filter((type) => type !== "config/label_registry/list"),
+    [],
+  );
+
   const direct = makePanel({ callWS: responseFor });
   await Promise.race([
     direct.loadRegistries(),

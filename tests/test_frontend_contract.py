@@ -13,6 +13,10 @@ def source() -> str:
 
 def test_frontend_uses_live_home_assistant_registries() -> None:
     text = source()
+    assert "hassRegistrySnapshot()" in text
+    assert "this._hass?.areas" in text
+    assert "this._hass?.devices" in text
+    assert "this._hass?.entities" in text
     for request in (
         "config/area_registry/list",
         "config/device_registry/list",

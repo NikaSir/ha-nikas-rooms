@@ -36,10 +36,10 @@ def main() -> None:
     require(len(reference.get("views", [])) == 19, "reference YAML must contain overview plus 18 rooms")
 
     require(manifest["domain"] == "nikas_rooms", "integration domain drift")
-    require(manifest["version"] == "0.1.1", "integration version drift")
-    require(panel_manifest["ui_version"] == "11.0.1", "panel UI version drift")
-    require(standard["ui_version"] == "11.0.1", "standard UI version drift")
-    require(contract["spec"]["ui"]["version"] == "11.0.1", "contract UI version drift")
+    require(manifest["version"] == "0.1.2", "integration version drift")
+    require(panel_manifest["ui_version"] == "11.0.2", "panel UI version drift")
+    require(standard["ui_version"] == "11.0.2", "standard UI version drift")
+    require(contract["spec"]["ui"]["version"] == "11.0.2", "contract UI version drift")
     require(panel_manifest["entry_route"] == "/dashboard-rooms-v11/rooms", "entry route drift")
     require(panel_manifest["preserved_yaml_route"] == "/dashboard-rooms/rooms", "preserved route drift")
 

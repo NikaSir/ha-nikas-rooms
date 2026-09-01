@@ -8,7 +8,7 @@
   "icon": "mdi:floor-plan",
   "owner": "nikas_rooms",
   "preferred_view": "rooms",
-  "ui_version": "11.0.1",
+  "ui_version": "11.0.2",
   "template_version": "1.9",
   "module_url": "nikas-rooms-panel.js",
   "frontend_delivery": {
