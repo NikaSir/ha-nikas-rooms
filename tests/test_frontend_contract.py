@@ -78,7 +78,8 @@ def test_frontend_has_autonomous_fixed_shell_and_gesture_zoom() -> None:
     assert "blur(18px) saturate(130%)" in text
     assert "--mdc-icon-size:28px" in text
     assert "history.back(" not in text
-    assert 'CustomEvent("location-changed"' in text
+    assert 'window.location.assign(path)' in text
+    assert "window.history.pushState" not in text
     assert "import " not in text
     assert "import(" not in text
 

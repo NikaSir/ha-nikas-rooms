@@ -1,5 +1,5 @@
 const ELEMENT_NAME = "nikas-rooms-v11";
-const UI_VERSION = "11.0.4";
+const UI_VERSION = "11.0.5";
 const PANEL_ROOT = "/dashboard-rooms-v11";
 const ROOT_PATH = "/dashboard-rooms-v11/rooms";
 const ZOOM_KEY = "nikas.rooms.zoom.v1";
@@ -854,11 +854,11 @@ class NikasRoomsV11 extends HTMLElement {
     if (!path || !path.startsWith("/")) return;
     const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
     if (current === path) return;
-    window.history.pushState(null, "", path);
-    if (this.isRoomsPath()) this.renderRoute(true);
-    window.dispatchEvent(new CustomEvent("location-changed", {
-      detail: { replace: false },
-    }));
+    if (typeof window.location.assign === "function") {
+      window.location.assign(path);
+      return;
+    }
+    window.location.href = path;
   }
 
   room(slug) {

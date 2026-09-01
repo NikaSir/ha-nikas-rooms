@@ -47,6 +47,10 @@ const location = {
   pathname: "/dashboard-rooms-v11/rooms",
   search: "",
   hash: "",
+  assigned: [],
+  assign(pathname) {
+    this.assigned.push(pathname);
+  },
 };
 
 const context = {
@@ -279,6 +283,10 @@ const run = async () => {
     ["/dashboard-rooms-v11/room-kitchen"],
     "the synthetic click after direct touchend must be deduplicated",
   );
+
+  const hardNavigationPanel = makePanel({});
+  hardNavigationPanel.navigate("/dashboard-rooms-v11/room-attic");
+  assert.deepEqual(location.assigned, ["/dashboard-rooms-v11/room-attic"]);
 
   console.log("registry loader and mobile activation harness passed");
   process.exit(0);
