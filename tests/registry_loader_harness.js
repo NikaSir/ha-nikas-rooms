@@ -47,6 +47,10 @@ const location = {
   pathname: "/dashboard-rooms-v11/rooms",
   search: "",
   hash: "",
+  assigned: [],
+  assign(pathname) {
+    this.assigned.push(pathname);
+  },
 };
 const navigationEvents = [];
 
@@ -312,6 +316,8 @@ const run = async () => {
 
   const seamlessNavigationPanel = makePanel({});
   seamlessNavigationPanel.navigate("/dashboard-rooms-v11/room-attic");
+  assert.equal(seamlessNavigationPanel.__renderCount, undefined);
+  await new Promise((resolve) => setTimeout(resolve, 10));
   assert.equal(location.pathname, "/dashboard-rooms-v11/room-attic");
   assert.equal(seamlessNavigationPanel.__renderCount, 1);
   assert.equal(seamlessNavigationPanel.__lastRenderArgs[0], true);
@@ -321,6 +327,41 @@ const run = async () => {
   seamlessNavigationPanel.navigate("/dashboard-actions/home");
   assert.equal(location.pathname, "/dashboard-actions/home");
   assert.equal(navigationEvents.at(-1).type, "location-changed");
+
+  const diagnosticsMarkupPanel = makePanel({
+    states: {
+      "sensor.attic_temperature": {
+        state: "21.4",
+        attributes: { device_class: "temperature", unit_of_measurement: "°C" },
+      },
+    },
+  });
+  const diagnosticsMarkup = diagnosticsMarkupPanel.diagnosticsMarkup({
+    area: { name: "Чердак" },
+    diagnosticDevices: [{ id: "device-1", name: "Датчик чердака", labels: ["v_ekspluatatsii"] }],
+    diagnosticEntities: [{
+      entity_id: "sensor.attic_temperature",
+      device_id: "device-1",
+      name: "Температура",
+      labels: ["v_ekspluatatsii"],
+    }],
+    diagnosticStandalone: [],
+    labelMap: new Map([["v_ekspluatatsii", "В эксплуатации"]]),
+  });
+  assert.match(diagnosticsMarkup, /Датчик чердака/);
+  assert.match(diagnosticsMarkup, /21[,.]4 °C/);
+
+  const failedNavigationPanel = makePanel({});
+  failedNavigationPanel.renderRoute = () => { throw new Error("render failed"); };
+  const originalConsoleError = console.error;
+  console.error = () => {};
+  try {
+    failedNavigationPanel.navigate("/dashboard-rooms-v11/room-greenhouse");
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  } finally {
+    console.error = originalConsoleError;
+  }
+  assert.deepEqual(location.assigned, ["/dashboard-rooms-v11/room-greenhouse"]);
 
   console.log("registry loader and mobile activation harness passed");
   process.exit(0);

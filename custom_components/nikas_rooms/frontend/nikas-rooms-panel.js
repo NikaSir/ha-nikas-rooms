@@ -1,5 +1,5 @@
 const ELEMENT_NAME = "nikas-rooms-v11";
-const UI_VERSION = "11.0.7";
+const UI_VERSION = "11.0.8";
 const PANEL_ROOT = "/dashboard-rooms-v11";
 const ROOT_PATH = "/dashboard-rooms-v11/rooms";
 const ZOOM_KEY = "nikas.rooms.zoom.v1";
@@ -251,6 +251,7 @@ class NikasRoomsV11 extends HTMLElement {
     this._activeRoute = null;
     this._diagnosticFilter = "*";
     this._stateFrame = null;
+    this._navigationFrame = null;
     this._viewCache = new Map();
     this._zoom = this.loadZoom();
     this._gesture = null;
@@ -314,6 +315,7 @@ class NikasRoomsV11 extends HTMLElement {
     window.removeEventListener("resize", this._onResize);
     window.visualViewport?.removeEventListener?.("resize", this._onResize);
     if (this._stateFrame !== null) window.cancelAnimationFrame(this._stateFrame);
+    if (this._navigationFrame !== null) window.cancelAnimationFrame(this._navigationFrame);
     window.clearTimeout(this._toastTimer);
     window.clearTimeout(this._registryRetryTimer);
     this._registryRetryTimer = null;
@@ -860,8 +862,17 @@ class NikasRoomsV11 extends HTMLElement {
     const internal = path === PANEL_ROOT || path.startsWith(`${PANEL_ROOT}/`);
     if (internal) {
       const targetRoute = this.route(path);
-      this.renderRoute(true, targetRoute);
-      window.history.pushState(null, "", path);
+      if (this._navigationFrame !== null) window.cancelAnimationFrame(this._navigationFrame);
+      this._navigationFrame = window.requestAnimationFrame(() => {
+        this._navigationFrame = null;
+        try {
+          this.renderRoute(true, targetRoute);
+          window.history.pushState(null, "", path);
+        } catch (error) {
+          console.error("[NikaS Rooms v11] internal navigation failed", error);
+          window.location.assign(path);
+        }
+      });
       return;
     }
     if (window.NikasPanelNavigation?.navigate?.(path)) return;

@@ -82,6 +82,8 @@ def test_frontend_has_autonomous_fixed_shell_and_gesture_zoom() -> None:
     assert "window.history.pushState" in text
     assert "this.renderRoute(true, targetRoute)" in text
     assert "this._activeRoute = route" in text
+    assert "this._navigationFrame = window.requestAnimationFrame" in text
+    assert 'window.location.assign(path)' in text
     assert 'new Event("location-changed")' in text
     assert "import " not in text
     assert "import(" not in text

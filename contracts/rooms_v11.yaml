@@ -16,7 +16,7 @@ spec:
     sha256: a9bceb0a48edd0932e6099149d55e5bde5bc9f6b427b906a4648c493229149a0
     source_ui_version: 10.8.18
   ui:
-    version: 11.0.7
+    version: 11.0.8
     standard: "1.9"
     frontend_bundle: nikas-rooms-panel.js
     autonomous: true
