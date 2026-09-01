@@ -16,7 +16,7 @@ spec:
     sha256: a9bceb0a48edd0932e6099149d55e5bde5bc9f6b427b906a4648c493229149a0
     source_ui_version: 10.8.18
   ui:
-    version: 11.0.2
+    version: 11.0.3
     standard: "1.9"
     frontend_bundle: nikas-rooms-panel.js
     autonomous: true
@@ -45,6 +45,12 @@ spec:
     policy: native_more_info_only
     direct_toggle: false
     direct_service_calls: false
+  navigation:
+    house_target: runtime panel with web component nikas-house-overview
+    accepted_house_routes:
+      - /dashboard-house-v11/home
+      - /dashboard-house-v12/home
+    mobile_activation: pointerup with synthetic-click deduplication
   rooms:
     - {slug: bathroom, number: "01", name: Ванная, floor: 2}
     - {slug: bedroom, number: "02", name: Спальня, floor: 2}

@@ -8,7 +8,7 @@
   "icon": "mdi:floor-plan",
   "owner": "nikas_rooms",
   "preferred_view": "rooms",
-  "ui_version": "11.0.2",
+  "ui_version": "11.0.3",
   "template_version": "1.9",
   "module_url": "nikas-rooms-panel.js",
   "frontend_delivery": {
@@ -34,6 +34,7 @@
     "header_button_px": 44,
     "header_icon_px": 25,
     "bottom_tabs": ["home", "rooms", "actions", "infrastructure"],
+    "home_target": "runtime_detected_nikas-house-overview_v11_or_v12",
     "bottom_tab_columns": 4,
     "bottom_tab_min_height_px": 52,
     "bottom_icon_px": 28,
@@ -52,6 +53,12 @@
     "persistent": true,
     "native_vertical_scroll_at_100_percent": true,
     "one_finger_pan": "scale_above_100_only"
+  },
+  "activation": {
+    "desktop_keyboard": "delegated_click",
+    "mobile_touch": "pointerup_with_click_deduplication",
+    "movement_threshold_px": 6,
+    "persistent_across_view_rebuilds": true
   },
   "runtime_contract": {
     "source": "home_assistant_registries_and_states",

@@ -36,10 +36,10 @@ def main() -> None:
     require(len(reference.get("views", [])) == 19, "reference YAML must contain overview plus 18 rooms")
 
     require(manifest["domain"] == "nikas_rooms", "integration domain drift")
-    require(manifest["version"] == "0.1.2", "integration version drift")
-    require(panel_manifest["ui_version"] == "11.0.2", "panel UI version drift")
-    require(standard["ui_version"] == "11.0.2", "standard UI version drift")
-    require(contract["spec"]["ui"]["version"] == "11.0.2", "contract UI version drift")
+    require(manifest["version"] == "0.1.3", "integration version drift")
+    require(panel_manifest["ui_version"] == "11.0.3", "panel UI version drift")
+    require(standard["ui_version"] == "11.0.3", "standard UI version drift")
+    require(contract["spec"]["ui"]["version"] == "11.0.3", "contract UI version drift")
     require(panel_manifest["entry_route"] == "/dashboard-rooms-v11/rooms", "entry route drift")
     require(panel_manifest["preserved_yaml_route"] == "/dashboard-rooms/rooms", "preserved route drift")
 
@@ -49,6 +49,15 @@ def main() -> None:
     require("history.back(" not in source, "browser history is not a navigation contract")
     require("hass-toggle-menu" in source and "mdi:menu" in source, "Home Assistant menu control missing")
     require("touchStart(event)" in source and "resetZoom()" in source, "gesture zoom contract missing")
+    require(
+        'addEventListener("pointerup"' in source and "activateControl(button)" in source,
+        "mobile activation fallback missing",
+    )
+    require(
+        'HOUSE_PANEL_COMPONENT = "nikas-house-overview"' in source
+        and "this.navigate(this.houseRoute())" in source,
+        "new House panel route resolution missing",
+    )
     require("callService(" not in source and ".turn_on" not in source, "direct commands are forbidden")
     require("/dashboard-rooms/room-" not in source, "frontend must not navigate into preserved YAML")
 

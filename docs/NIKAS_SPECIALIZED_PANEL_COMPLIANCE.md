@@ -12,7 +12,9 @@
 | Источник данных | Только HA registries и `hass.states` |
 | Неизвестные данные | Явное `Нет данных`, без оптимистических значений |
 | Команды | Нет прямых toggle/service calls; только штатный `more-info` |
-| Версия | UI `11.0.2`, cache key и panel manifest согласованы |
+| Мобильные нажатия | Единая делегация, `pointerup` fallback и отсечение synthetic click |
+| Ссылка «Дом» | Runtime-поиск `nikas-house-overview`; поддержаны `/dashboard-house-v11/home` и `/dashboard-house-v12/home` |
+| Версия | UI `11.0.3`, cache key и panel manifest согласованы |
 
 ## Проверка на устройстве
 

@@ -1,5 +1,5 @@
 const ELEMENT_NAME = "nikas-rooms-v11";
-const UI_VERSION = "11.0.2";
+const UI_VERSION = "11.0.3";
 const PANEL_ROOT = "/dashboard-rooms-v11";
 const ROOT_PATH = "/dashboard-rooms-v11/rooms";
 const ZOOM_KEY = "nikas.rooms.zoom.v1";
@@ -11,6 +11,9 @@ const REGISTRY_TIMEOUT_MS = 8_000;
 const LABEL_REGISTRY_TIMEOUT_MS = 4_000;
 const REGISTRY_RETRY_DELAY_MS = 2_000;
 const SAFE_DEFAULT_ROUTE = "/dashboard-house-v11/home";
+const HOUSE_PANEL_COMPONENT = "nikas-house-overview";
+const TAP_MOVE_THRESHOLD_PX = 6;
+const TAP_CLICK_GUARD_MS = 700;
 const ACTIVE_LABEL = "v_ekspluatatsii";
 const SERVICE_LABEL = "na_obsluzhivanii";
 const REPLACEMENT_LABEL = "trebuet_zameny";
@@ -159,6 +162,30 @@ function safeReturnRoute(value) {
   }
 }
 
+function isHouseRoute(value) {
+  return value === "/dashboard-house-v11/home" || value === "/dashboard-house-v12/home";
+}
+
+function detectedHouseRoute(hass) {
+  const panels = hass?.panels;
+  if (!panels || typeof panels !== "object") return null;
+  const routes = [];
+  for (const panel of Object.values(panels)) {
+    if (panel?.component_name !== "custom") continue;
+    if (panel?.config?._panel_custom?.name !== HOUSE_PANEL_COMPONENT) continue;
+    const configured = safeReturnRoute(panel?.config?.default_path);
+    if (isHouseRoute(configured)) {
+      routes.push(configured);
+      continue;
+    }
+    const registered = safeReturnRoute(`/${String(panel?.url_path || "")}/home`);
+    if (isHouseRoute(registered)) routes.push(registered);
+  }
+  return routes.includes("/dashboard-house-v12/home")
+    ? "/dashboard-house-v12/home"
+    : routes[0] || null;
+}
+
 function resolveReturnRoute(panel) {
   const current = new URL(window.location.href);
   const explicit = ["return_to", "from"]
@@ -229,6 +256,11 @@ class NikasRoomsV11 extends HTMLElement {
     this._suppressClicksUntil = 0;
     this._toastTimer = null;
     this._returnRoute = null;
+    this._houseRoute = SAFE_DEFAULT_ROUTE;
+    this._touchPointers = new Set();
+    this._tapSession = null;
+    this._manualActivationTarget = null;
+    this._manualActivationUntil = 0;
     this._onLocation = () => {
       if (this.isRoomsPath()) this.renderRoute();
     };
@@ -242,6 +274,7 @@ class NikasRoomsV11 extends HTMLElement {
   set hass(value) {
     const previous = this._hass;
     this._hass = value;
+    this.syncHouseRoute();
     const snapshot = this.hassRegistrySnapshot();
     const registriesChanged = !previous
       || previous.areas !== value?.areas
@@ -288,6 +321,7 @@ class NikasRoomsV11 extends HTMLElement {
     if (this._mounted) return;
     this._mounted = true;
     this._returnRoute = resolveReturnRoute(this);
+    this.syncHouseRoute();
     this.shadowRoot.innerHTML = `
       <style>${this.styles()}</style>
       <div class="app">
@@ -319,20 +353,11 @@ class NikasRoomsV11 extends HTMLElement {
     this._viewport = this.shadowRoot.getElementById("viewport");
     this._canvas = this.shadowRoot.getElementById("canvas");
     this._toast = this.shadowRoot.querySelector(".zoom-toast");
-    this.shadowRoot.querySelector(".menu")?.addEventListener("click", () => {
-      this.dispatchEvent(new Event("hass-toggle-menu", { bubbles: true, composed: true }));
-    });
-    this.shadowRoot.querySelector(".refresh")?.addEventListener("click", () => this.loadRegistries(true));
-    this.shadowRoot.querySelector(".title-return")?.addEventListener("click", () => {
-      const path = this.shadowRoot.querySelector(".title-return")?.dataset.backPath;
-      if (path) this.navigate(path);
-    });
-    this.shadowRoot.querySelector(".tabs")?.addEventListener("click", (event) => {
-      const button = event.target.closest("button");
-      if (!button) return;
-      const path = button.dataset.base === "home" ? this._returnRoute : button.dataset.path;
-      if (path) this.navigate(path);
-    });
+    this.shadowRoot.addEventListener("click", (event) => this.controlClick(event));
+    this.shadowRoot.addEventListener("pointerdown", (event) => this.tapPointerDown(event), { passive: true });
+    this.shadowRoot.addEventListener("pointermove", (event) => this.tapPointerMove(event), { passive: true });
+    this.shadowRoot.addEventListener("pointerup", (event) => this.tapPointerUp(event), { passive: false });
+    this.shadowRoot.addEventListener("pointercancel", (event) => this.tapPointerCancel(event), { passive: true });
     this._viewport.addEventListener("touchstart", (event) => this.touchStart(event), { passive: false });
     this._viewport.addEventListener("touchmove", (event) => this.touchMove(event), { passive: false });
     this._viewport.addEventListener("touchend", (event) => this.touchEnd(event), { passive: false });
@@ -340,6 +365,141 @@ class NikasRoomsV11 extends HTMLElement {
     this.updateHeader();
     this.updateTabs();
     this.applyTransform();
+  }
+
+  syncHouseRoute() {
+    const route = detectedHouseRoute(this._hass);
+    if (!route) return;
+    this._houseRoute = route;
+    if (!this._returnRoute || isHouseRoute(this._returnRoute)) this._returnRoute = route;
+    if (this._mounted) this.updateHeader();
+  }
+
+  houseRoute() {
+    this.syncHouseRoute();
+    return this._houseRoute || SAFE_DEFAULT_ROUTE;
+  }
+
+  actionButton(event) {
+    const path = typeof event?.composedPath === "function" ? event.composedPath() : [];
+    for (const node of path) {
+      if (node === this.shadowRoot) break;
+      if (typeof node?.matches === "function" && node.matches("button")) {
+        return node.disabled ? null : node;
+      }
+    }
+    const button = event?.target?.closest?.("button") || null;
+    return button && !button.disabled ? button : null;
+  }
+
+  activateControl(button) {
+    if (!button || button.disabled) return false;
+    if (button.classList?.contains("menu")) {
+      this.dispatchEvent(new CustomEvent("hass-toggle-menu", { bubbles: true, composed: true }));
+      return true;
+    }
+    if (button.classList?.contains("refresh") || button.dataset?.registryRetry !== undefined) {
+      this.loadRegistries(true);
+      return true;
+    }
+    if (button.classList?.contains("title-return")) {
+      if (button.dataset?.backPath) this.navigate(button.dataset.backPath);
+      return true;
+    }
+    if (button.dataset?.room) {
+      this.navigate(`/dashboard-rooms-v11/room-${button.dataset.room}`);
+      return true;
+    }
+    if (button.dataset?.entity) {
+      this.dispatchEvent(new CustomEvent("hass-more-info", {
+        bubbles: true,
+        composed: true,
+        detail: { entityId: button.dataset.entity },
+      }));
+      return true;
+    }
+    if (button.id === "diagnostics") {
+      const room = this.route().slug ? this.room(this.route().slug) : null;
+      if (room) this.navigate(`/dashboard-rooms-v11/room-${room.slug}/diagnostics`);
+      return true;
+    }
+    if (button.dataset?.filter !== undefined) {
+      this.applyDiagnosticFilter(button.dataset.filter || "*");
+      return true;
+    }
+    if (button.dataset?.base === "home") {
+      this.navigate(this.houseRoute());
+      return true;
+    }
+    if (button.dataset?.path) {
+      this.navigate(button.dataset.path);
+      return true;
+    }
+    return false;
+  }
+
+  controlClick(event) {
+    const button = this.actionButton(event);
+    if (!button) return;
+    if (button === this._manualActivationTarget && Date.now() < this._manualActivationUntil) {
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation?.();
+      return;
+    }
+    if (Date.now() < this._suppressClicksUntil) return;
+    if (this.activateControl(button)) event.preventDefault();
+  }
+
+  tapPointerDown(event) {
+    if (event.pointerType !== "touch") return;
+    this._touchPointers.add(event.pointerId);
+    if (this._touchPointers.size > 1) {
+      if (this._tapSession) this._tapSession.cancelled = true;
+      return;
+    }
+    const button = this.actionButton(event);
+    this._tapSession = button ? {
+      pointerId: event.pointerId,
+      button,
+      startX: Number(event.clientX) || 0,
+      startY: Number(event.clientY) || 0,
+      cancelled: false,
+    } : null;
+  }
+
+  tapPointerMove(event) {
+    const session = this._tapSession;
+    if (event.pointerType !== "touch" || !session || session.pointerId !== event.pointerId) return;
+    const distance = Math.hypot(
+      (Number(event.clientX) || 0) - session.startX,
+      (Number(event.clientY) || 0) - session.startY,
+    );
+    if (distance >= TAP_MOVE_THRESHOLD_PX) session.cancelled = true;
+  }
+
+  tapPointerUp(event) {
+    if (event.pointerType !== "touch") return;
+    const session = this._tapSession;
+    const isCandidate = session
+      && session.pointerId === event.pointerId
+      && !session.cancelled
+      && this._touchPointers.size === 1
+      && !this._gesture?.moved
+      && this._gesture?.kind !== "pinch"
+      && Date.now() >= this._suppressClicksUntil;
+    this._touchPointers.delete(event.pointerId);
+    this._tapSession = null;
+    if (!isCandidate || !this.activateControl(session.button)) return;
+    this._manualActivationTarget = session.button;
+    this._manualActivationUntil = Date.now() + TAP_CLICK_GUARD_MS;
+    if (event.cancelable) event.preventDefault();
+  }
+
+  tapPointerCancel(event) {
+    if (event.pointerType !== "touch") return;
+    this._touchPointers.delete(event.pointerId);
+    if (this._tapSession?.pointerId === event.pointerId) this._tapSession = null;
   }
 
   registryTransport() {
@@ -411,9 +571,6 @@ class NikasRoomsV11 extends HTMLElement {
         ${detail ? `<small>${escapeHtml(detail)}</small>` : ""}
         ${retry ? '<button type="button" data-registry-retry>Повторить</button>' : ""}
       </div>`;
-    canvas.querySelector("[data-registry-retry]")?.addEventListener("click", () => {
-      this.loadRegistries(true);
-    });
   }
 
   scheduleRegistryRetry() {
@@ -1005,31 +1162,8 @@ class NikasRoomsV11 extends HTMLElement {
       </div>`;
   }
 
-  bindView(room) {
-    this.shadowRoot.querySelectorAll("[data-room]").forEach((button) => {
-      button.onclick = () => {
-        if (Date.now() < this._suppressClicksUntil) return;
-        this.navigate(`/dashboard-rooms-v11/room-${button.dataset.room}`);
-      };
-    });
-    this.shadowRoot.querySelectorAll("[data-entity]").forEach((button) => {
-      button.onclick = () => {
-        if (Date.now() < this._suppressClicksUntil) return;
-        this.dispatchEvent(new CustomEvent("hass-more-info", {
-          bubbles: true,
-          composed: true,
-          detail: { entityId: button.dataset.entity },
-        }));
-      };
-    });
-    this.shadowRoot.getElementById("diagnostics")?.addEventListener("click", () => {
-      if (room && Date.now() >= this._suppressClicksUntil) {
-        this.navigate(`/dashboard-rooms-v11/room-${room.slug}/diagnostics`);
-      }
-    });
-    this.shadowRoot.querySelectorAll("[data-filter]").forEach((button) => {
-      button.onclick = () => this.applyDiagnosticFilter(button.dataset.filter || "*");
-    });
+  bindView() {
+    // Controls are handled by persistent ShadowRoot delegation installed with the shell.
   }
 
   applyDiagnosticFilter(filter) {
@@ -1316,7 +1450,10 @@ class NikasRoomsV11 extends HTMLElement {
         font-family:var(--paper-font-body1_-_font-family,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif)
       }
       *{box-sizing:border-box}
-      button{font:inherit;-webkit-tap-highlight-color:transparent}
+      button{
+        appearance:none;-webkit-appearance:none;font:inherit;touch-action:manipulation;
+        -webkit-tap-highlight-color:transparent
+      }
       .app{
         position:absolute;inset:0;display:grid;min-width:0;min-height:0;overflow:hidden;
         grid-template-rows:calc(62px + env(safe-area-inset-top,0px)) minmax(0,1fr)

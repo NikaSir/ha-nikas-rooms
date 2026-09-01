@@ -18,6 +18,7 @@ class FakeHTMLElement {
   constructor() {
     this.isConnected = true;
     this.shadowRoot = null;
+    this.__events = [];
   }
 
   attachShadow() {
@@ -26,6 +27,11 @@ class FakeHTMLElement {
       querySelector: () => null,
     };
     return this.shadowRoot;
+  }
+
+  dispatchEvent(event) {
+    this.__events.push(event);
+    return true;
   }
 }
 
@@ -55,8 +61,18 @@ const context = {
   Math,
   JSON,
   HTMLElement: FakeHTMLElement,
-  CustomEvent: class CustomEvent {},
-  Event: class Event {},
+  CustomEvent: class CustomEvent {
+    constructor(type, init = {}) {
+      this.type = type;
+      Object.assign(this, init);
+    }
+  },
+  Event: class Event {
+    constructor(type, init = {}) {
+      this.type = type;
+      Object.assign(this, init);
+    }
+  },
   localStorage: storage,
   sessionStorage: storage,
   document: { referrer: "" },
@@ -102,6 +118,14 @@ const never = new Promise(() => {});
 const responseFor = ({ type }) => (
   type === "config/label_registry/list" ? never : Promise.resolve([])
 );
+
+const fakeButton = ({ dataset = {}, classes = [], id = "", disabled = false } = {}) => ({
+  classList: { contains: (name) => classes.includes(name) },
+  dataset,
+  disabled,
+  id,
+  matches: (selector) => selector === "button",
+});
 
 const run = async () => {
   const requestedTypes = [];
@@ -154,7 +178,79 @@ const run = async () => {
   ]);
   assert.equal(fallback.__renderCount, 1);
 
-  console.log("registry loader harness passed");
+  const navigationPanel = makePanel({
+    panels: {
+      "dashboard-house-v11": {
+        component_name: "custom",
+        config: { _panel_custom: { name: "some-other-panel" } },
+        url_path: "dashboard-house-v11",
+      },
+      "dashboard-house-v12": {
+        component_name: "custom",
+        config: {
+          _panel_custom: { name: "nikas-house-overview" },
+          default_path: "/dashboard-house-v12/home",
+        },
+        url_path: "dashboard-house-v12",
+      },
+    },
+  });
+  const visited = [];
+  navigationPanel.navigate = (route) => visited.push(route);
+  const homeButton = fakeButton({ dataset: { base: "home" } });
+  const roomButton = fakeButton({ dataset: { room: "bathroom" } });
+  assert.equal(navigationPanel.activateControl(homeButton), true);
+  assert.equal(visited.at(-1), "/dashboard-house-v12/home");
+  assert.equal(navigationPanel.activateControl(roomButton), true);
+  assert.equal(visited.at(-1), "/dashboard-rooms-v11/room-bathroom");
+  assert.equal(
+    navigationPanel.actionButton({ composedPath: () => [roomButton, navigationPanel.shadowRoot] }),
+    roomButton,
+  );
+
+  const tapVisited = [];
+  navigationPanel.navigate = (route) => tapVisited.push(route);
+  const pointerEvent = (type, extra = {}) => ({
+    cancelable: true,
+    clientX: 20,
+    clientY: 30,
+    composedPath: () => [roomButton, navigationPanel.shadowRoot],
+    pointerId: 7,
+    pointerType: "touch",
+    preventDefault: () => {},
+    stopImmediatePropagation: () => {},
+    stopPropagation: () => {},
+    type,
+    ...extra,
+  });
+  navigationPanel.tapPointerDown(pointerEvent("pointerdown"));
+  navigationPanel.tapPointerUp(pointerEvent("pointerup"));
+  assert.deepEqual(tapVisited, ["/dashboard-rooms-v11/room-bathroom"]);
+  navigationPanel.controlClick(pointerEvent("click"));
+  assert.deepEqual(
+    tapVisited,
+    ["/dashboard-rooms-v11/room-bathroom"],
+    "the synthetic click after a touch activation must be deduplicated",
+  );
+
+  navigationPanel._manualActivationTarget = null;
+  navigationPanel._manualActivationUntil = 0;
+  navigationPanel.tapPointerDown(pointerEvent("pointerdown", { pointerId: 8 }));
+  navigationPanel.tapPointerMove(pointerEvent("pointermove", {
+    clientX: 30,
+    pointerId: 8,
+  }));
+  navigationPanel.tapPointerUp(pointerEvent("pointerup", {
+    clientX: 30,
+    pointerId: 8,
+  }));
+  assert.deepEqual(
+    tapVisited,
+    ["/dashboard-rooms-v11/room-bathroom"],
+    "finger movement must not activate a room card",
+  );
+
+  console.log("registry loader and mobile activation harness passed");
   process.exit(0);
 };
 

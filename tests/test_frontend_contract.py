@@ -65,6 +65,10 @@ def test_frontend_has_autonomous_fixed_shell_and_gesture_zoom() -> None:
     assert "touchStart(event)" in text
     assert "touchMove(event)" in text
     assert "touchEnd(event)" in text
+    assert 'addEventListener("pointerdown"' in text
+    assert 'addEventListener("pointerup"' in text
+    assert "event.composedPath()" in text
+    assert "activateControl(button)" in text
     assert "resetZoom()" in text
     assert "0.75, 2" in text
     assert "grid-template-columns:52px minmax(0,1fr) 52px" in text
@@ -92,6 +96,15 @@ def test_frontend_never_navigates_into_preserved_yaml_rooms() -> None:
     assert "/dashboard-rooms/room-" not in text
     assert "callService(" not in text
     assert 'CustomEvent("hass-more-info"' in text
+
+
+def test_frontend_resolves_the_runtime_new_house_panel() -> None:
+    text = source()
+    assert 'const HOUSE_PANEL_COMPONENT = "nikas-house-overview"' in text
+    assert "hass?.panels" in text
+    assert '"/dashboard-house-v12/home"' in text
+    assert "detectedHouseRoute(this._hass)" in text
+    assert "this.navigate(this.houseRoute())" in text
 
 
 def test_shipped_brand_asset_is_present() -> None:
