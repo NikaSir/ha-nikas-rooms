@@ -250,6 +250,36 @@ const run = async () => {
     "finger movement must not activate a room card",
   );
 
+  const directTouchVisited = [];
+  const directTouchPanel = makePanel({});
+  directTouchPanel.navigate = (route) => directTouchVisited.push(route);
+  const directRoomButton = fakeButton({ dataset: { room: "kitchen" } });
+  const directTouch = (x, y) => ({ identifier: 11, clientX: x, clientY: y });
+  directTouchPanel.directTouchStart({
+    currentTarget: directRoomButton,
+    touches: [directTouch(40, 50)],
+  });
+  let directPrevented = false;
+  directTouchPanel.directTouchEnd({
+    cancelable: true,
+    changedTouches: { 0: directTouch(42, 52), length: 1 },
+    currentTarget: directRoomButton,
+    preventDefault: () => { directPrevented = true; },
+    touches: [],
+  });
+  assert.deepEqual(directTouchVisited, ["/dashboard-rooms-v11/room-kitchen"]);
+  assert.equal(directPrevented, true);
+  directTouchPanel.directControlClick({
+    currentTarget: directRoomButton,
+    preventDefault: () => {},
+    stopPropagation: () => {},
+  });
+  assert.deepEqual(
+    directTouchVisited,
+    ["/dashboard-rooms-v11/room-kitchen"],
+    "the synthetic click after direct touchend must be deduplicated",
+  );
+
   console.log("registry loader and mobile activation harness passed");
   process.exit(0);
 };

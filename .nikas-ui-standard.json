@@ -8,7 +8,7 @@
     "custom_components/nikas_rooms/frontend/nikas-rooms-panel.js"
   ],
   "production_entrypoint": "custom_components/nikas_rooms/frontend/nikas-rooms-panel.js",
-  "ui_version": "11.0.3",
+  "ui_version": "11.0.4",
   "panel_root": "/dashboard-rooms-v11",
   "entry_route": "/dashboard-rooms-v11/rooms",
   "preserved_route": "/dashboard-rooms/rooms",

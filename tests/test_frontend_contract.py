@@ -67,6 +67,9 @@ def test_frontend_has_autonomous_fixed_shell_and_gesture_zoom() -> None:
     assert "touchEnd(event)" in text
     assert 'addEventListener("pointerdown"' in text
     assert 'addEventListener("pointerup"' in text
+    assert 'addEventListener("touchend"' in text
+    assert "bindControlButtons(view)" in text
+    assert "directTouchEnd(event)" in text
     assert "event.composedPath()" in text
     assert "activateControl(button)" in text
     assert "resetZoom()" in text
@@ -75,6 +78,7 @@ def test_frontend_has_autonomous_fixed_shell_and_gesture_zoom() -> None:
     assert "blur(18px) saturate(130%)" in text
     assert "--mdc-icon-size:28px" in text
     assert "history.back(" not in text
+    assert 'CustomEvent("location-changed"' in text
     assert "import " not in text
     assert "import(" not in text
 

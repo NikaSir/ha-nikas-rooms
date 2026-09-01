@@ -1,5 +1,5 @@
 const ELEMENT_NAME = "nikas-rooms-v11";
-const UI_VERSION = "11.0.3";
+const UI_VERSION = "11.0.4";
 const PANEL_ROOT = "/dashboard-rooms-v11";
 const ROOT_PATH = "/dashboard-rooms-v11/rooms";
 const ZOOM_KEY = "nikas.rooms.zoom.v1";
@@ -14,6 +14,7 @@ const SAFE_DEFAULT_ROUTE = "/dashboard-house-v11/home";
 const HOUSE_PANEL_COMPONENT = "nikas-house-overview";
 const TAP_MOVE_THRESHOLD_PX = 6;
 const TAP_CLICK_GUARD_MS = 700;
+const DIRECT_TOUCH_THRESHOLD_PX = 10;
 const ACTIVE_LABEL = "v_ekspluatatsii";
 const SERVICE_LABEL = "na_obsluzhivanii";
 const REPLACEMENT_LABEL = "trebuet_zameny";
@@ -261,6 +262,8 @@ class NikasRoomsV11 extends HTMLElement {
     this._tapSession = null;
     this._manualActivationTarget = null;
     this._manualActivationUntil = 0;
+    this._boundControls = new WeakSet();
+    this._directTouchSessions = new WeakMap();
     this._onLocation = () => {
       if (this.isRoomsPath()) this.renderRoute();
     };
@@ -353,6 +356,7 @@ class NikasRoomsV11 extends HTMLElement {
     this._viewport = this.shadowRoot.getElementById("viewport");
     this._canvas = this.shadowRoot.getElementById("canvas");
     this._toast = this.shadowRoot.querySelector(".zoom-toast");
+    this.bindControlButtons(this.shadowRoot);
     this.shadowRoot.addEventListener("click", (event) => this.controlClick(event));
     this.shadowRoot.addEventListener("pointerdown", (event) => this.tapPointerDown(event), { passive: true });
     this.shadowRoot.addEventListener("pointermove", (event) => this.tapPointerMove(event), { passive: true });
@@ -390,6 +394,90 @@ class NikasRoomsV11 extends HTMLElement {
     }
     const button = event?.target?.closest?.("button") || null;
     return button && !button.disabled ? button : null;
+  }
+
+  bindControlButtons(root) {
+    for (const button of root?.querySelectorAll?.("button") || []) {
+      if (this._boundControls.has(button)) continue;
+      this._boundControls.add(button);
+      button.addEventListener("click", (event) => this.directControlClick(event));
+      button.addEventListener("touchstart", (event) => this.directTouchStart(event), { passive: true });
+      button.addEventListener("touchmove", (event) => this.directTouchMove(event), { passive: true });
+      button.addEventListener("touchend", (event) => this.directTouchEnd(event), { passive: false });
+      button.addEventListener("touchcancel", (event) => this.directTouchCancel(event), { passive: true });
+    }
+  }
+
+  directControlClick(event) {
+    const button = event.currentTarget;
+    event.stopPropagation();
+    if (button === this._manualActivationTarget && Date.now() < this._manualActivationUntil) {
+      event.preventDefault();
+      return;
+    }
+    if (Date.now() < this._suppressClicksUntil) return;
+    if (this.activateControl(button)) event.preventDefault();
+  }
+
+  directTouchStart(event) {
+    const button = event.currentTarget;
+    if (event.touches?.length !== 1) {
+      this._directTouchSessions.delete(button);
+      return;
+    }
+    const touch = event.touches[0];
+    this._directTouchSessions.set(button, {
+      identifier: touch.identifier,
+      startX: Number(touch.clientX) || 0,
+      startY: Number(touch.clientY) || 0,
+      cancelled: false,
+    });
+  }
+
+  directTouchMove(event) {
+    const button = event.currentTarget;
+    const session = this._directTouchSessions.get(button);
+    if (!session || event.touches?.length !== 1) return;
+    const touch = event.touches[0];
+    if (touch.identifier !== session.identifier) {
+      session.cancelled = true;
+      return;
+    }
+    const distance = Math.hypot(
+      (Number(touch.clientX) || 0) - session.startX,
+      (Number(touch.clientY) || 0) - session.startY,
+    );
+    if (distance >= DIRECT_TOUCH_THRESHOLD_PX) session.cancelled = true;
+  }
+
+  directTouchEnd(event) {
+    const button = event.currentTarget;
+    const session = this._directTouchSessions.get(button);
+    this._directTouchSessions.delete(button);
+    if (!session || session.cancelled || event.touches?.length) return;
+    if (button === this._manualActivationTarget && Date.now() < this._manualActivationUntil) return;
+    const changedTouches = event.changedTouches || [];
+    let touch = null;
+    for (let index = 0; index < changedTouches.length; index += 1) {
+      const item = changedTouches[index] || changedTouches.item?.(index);
+      if (item?.identifier === session.identifier) {
+        touch = item;
+        break;
+      }
+    }
+    if (!touch || Date.now() < this._suppressClicksUntil) return;
+    const distance = Math.hypot(
+      (Number(touch.clientX) || 0) - session.startX,
+      (Number(touch.clientY) || 0) - session.startY,
+    );
+    if (distance >= DIRECT_TOUCH_THRESHOLD_PX || !this.activateControl(button)) return;
+    this._manualActivationTarget = button;
+    this._manualActivationUntil = Date.now() + TAP_CLICK_GUARD_MS;
+    if (event.cancelable) event.preventDefault();
+  }
+
+  directTouchCancel(event) {
+    this._directTouchSessions.delete(event.currentTarget);
   }
 
   activateControl(button) {
@@ -487,6 +575,8 @@ class NikasRoomsV11 extends HTMLElement {
       && this._touchPointers.size === 1
       && !this._gesture?.moved
       && this._gesture?.kind !== "pinch"
+      && !(session.button === this._manualActivationTarget
+        && Date.now() < this._manualActivationUntil)
       && Date.now() >= this._suppressClicksUntil;
     this._touchPointers.delete(event.pointerId);
     this._tapSession = null;
@@ -765,7 +855,10 @@ class NikasRoomsV11 extends HTMLElement {
     const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
     if (current === path) return;
     window.history.pushState(null, "", path);
-    window.dispatchEvent(new Event("location-changed"));
+    if (this.isRoomsPath()) this.renderRoute(true);
+    window.dispatchEvent(new CustomEvent("location-changed", {
+      detail: { replace: false },
+    }));
   }
 
   room(slug) {
@@ -969,6 +1062,7 @@ class NikasRoomsV11 extends HTMLElement {
     }
     this._canvas.className = `canvas ${route.kind}`;
     if (this._canvas.firstElementChild !== view) this._canvas.replaceChildren(view);
+    this.bindControlButtons(view);
     this.bindView(room);
     this.resetViewportForRoute();
     this.scheduleStatePatch();
