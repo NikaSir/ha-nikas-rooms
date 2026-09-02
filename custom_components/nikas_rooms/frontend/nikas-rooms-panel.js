@@ -1,5 +1,5 @@
 const ELEMENT_NAME = "nikas-rooms-v11";
-const UI_VERSION = "11.0.12";
+const UI_VERSION = "11.0.13";
 const PANEL_ROOT = "/dashboard-rooms-v11";
 const ROOT_PATH = "/dashboard-rooms-v11/rooms";
 const ZOOM_KEY = "nikas.rooms.zoom.v1";
@@ -251,7 +251,7 @@ class NikasRoomsV11 extends HTMLElement {
     this._activeRoute = null;
     this._diagnosticFilter = "*";
     this._stateFrame = null;
-    this._viewCache = new Map();
+    this._viewsBuilt = false;
     this._zoom = this.loadZoom();
     this._gesture = null;
     this._lastTwoTap = 0;
@@ -265,6 +265,7 @@ class NikasRoomsV11 extends HTMLElement {
     this._manualActivationUntil = 0;
     this._boundControls = new WeakSet();
     this._directTouchSessions = new WeakMap();
+    this._navigationProxy = null;
     this._onLocation = () => {
       if (this.isRoomsPath()) this.renderRoute();
     };
@@ -333,9 +334,9 @@ class NikasRoomsV11 extends HTMLElement {
           <button class="shell-button menu" type="button" aria-label="Меню Home Assistant">
             <ha-icon icon="mdi:menu"></ha-icon>
           </button>
-          <a class="title-return" href="${this._houseRoute || SAFE_DEFAULT_ROUTE}" aria-label="Вернуться">
+          <button class="title-return" type="button" data-path="${this._houseRoute || SAFE_DEFAULT_ROUTE}" aria-label="Вернуться">
             <strong>Помещения</strong><small>UI v${UI_VERSION}</small>
-          </a>
+          </button>
           <button class="shell-button refresh" type="button" aria-label="Обновить">
             <ha-icon icon="mdi:refresh"></ha-icon>
           </button>
@@ -346,17 +347,19 @@ class NikasRoomsV11 extends HTMLElement {
           </section>
         </main>
         <nav class="tabs" aria-label="Основные панели NikaS">
-          <a data-base="home" href="${this.houseRoute()}" aria-label="Дом"><ha-icon icon="mdi:home-outline"></ha-icon><small>Дом</small></a>
-          <a data-path="${ROOT_PATH}" href="${ROOT_PATH}" aria-label="Помещения"><ha-icon icon="mdi:floor-plan"></ha-icon><small>Помещения</small></a>
-          <a data-path="/dashboard-actions/home" href="/dashboard-actions/home" aria-label="Действия"><ha-icon icon="mdi:lightning-bolt-outline"></ha-icon><small>Действия</small></a>
-          <a data-path="/dashboard-infrastructure/overview" href="/dashboard-infrastructure/overview" aria-label="Инфраструктура"><ha-icon icon="mdi:server-network"></ha-icon><small>Инфра</small></a>
+          <button type="button" data-path="${this.houseRoute()}" aria-label="Дом"><ha-icon icon="mdi:home-outline"></ha-icon><small>Дом</small></button>
+          <button type="button" data-route-kind="overview" aria-label="Помещения"><ha-icon icon="mdi:floor-plan"></ha-icon><small>Помещения</small></button>
+          <button type="button" data-path="/dashboard-actions/home" aria-label="Действия"><ha-icon icon="mdi:lightning-bolt-outline"></ha-icon><small>Действия</small></button>
+          <button type="button" data-path="/dashboard-infrastructure/overview" aria-label="Инфраструктура"><ha-icon icon="mdi:server-network"></ha-icon><small>Инфра</small></button>
         </nav>
+        <a class="navigation-proxy" id="navigation-proxy" href="${ROOT_PATH}" tabindex="-1" aria-hidden="true"></a>
         <div class="zoom-toast" aria-live="polite">Масштаб 100%</div>
       </div>`;
 
     this._viewport = this.shadowRoot.getElementById("viewport");
     this._canvas = this.shadowRoot.getElementById("canvas");
     this._toast = this.shadowRoot.querySelector(".zoom-toast");
+    this._navigationProxy = this.shadowRoot.getElementById("navigation-proxy");
     this.bindControlButtons(this.shadowRoot);
     this.shadowRoot.addEventListener("click", (event) => this.controlClick(event));
     this.shadowRoot.addEventListener("pointerdown", (event) => this.tapPointerDown(event), { passive: true });
@@ -379,8 +382,8 @@ class NikasRoomsV11 extends HTMLElement {
     if (!this._returnRoute || isHouseRoute(this._returnRoute)) this._returnRoute = route;
     if (this._mounted) {
       this.updateHeader();
-      const homeLink = this.shadowRoot?.querySelector('.tabs a[data-base="home"]');
-      if (homeLink) homeLink.setAttribute("href", route);
+      const homeButton = this.shadowRoot?.querySelector('.tabs button[aria-label="Дом"]');
+      if (homeButton) homeButton.dataset.path = route;
     }
   }
 
@@ -495,6 +498,13 @@ class NikasRoomsV11 extends HTMLElement {
       this.loadRegistries(true);
       return true;
     }
+    if (button.dataset?.routeKind) {
+      this.renderRoute(false, {
+        kind: button.dataset.routeKind,
+        slug: button.dataset.routeSlug || undefined,
+      });
+      return true;
+    }
     if (button.dataset?.entity) {
       this.dispatchEvent(new CustomEvent("hass-more-info", {
         bubbles: true,
@@ -505,6 +515,10 @@ class NikasRoomsV11 extends HTMLElement {
     }
     if (button.dataset?.filter !== undefined) {
       this.applyDiagnosticFilter(button.dataset.filter || "*");
+      return true;
+    }
+    if (button.dataset?.path) {
+      this.navigate(button.dataset.path);
       return true;
     }
     return false;
@@ -610,7 +624,7 @@ class NikasRoomsV11 extends HTMLElement {
     this._registryRetryTimer = null;
     this._registries = snapshot;
     this.buildRooms();
-    if (force) this._viewCache.clear();
+    if (force) this._viewsBuilt = false;
     this.renderRoute(true, this._activeRoute || this.route());
     this.syncRefreshState();
     this.loadOptionalLabels(loadId);
@@ -639,6 +653,7 @@ class NikasRoomsV11 extends HTMLElement {
   renderRegistryMessage(title, detail = "", retry = false) {
     const canvas = this.shadowRoot?.getElementById("canvas");
     if (!canvas) return;
+    this._viewsBuilt = false;
     canvas.innerHTML = `
       <div class="loading registry-message">
         <strong>${escapeHtml(title)}</strong>
@@ -721,7 +736,7 @@ class NikasRoomsV11 extends HTMLElement {
       }
       this._registries = { areas, devices, entities, labels: [] };
       this.buildRooms();
-      if (force) this._viewCache.clear();
+      if (force) this._viewsBuilt = false;
       this.renderRoute(true, this._activeRoute || this.route());
       this._registryRetryAttempts = 0;
       this.loadOptionalLabels(loadId);
@@ -834,6 +849,19 @@ class NikasRoomsV11 extends HTMLElement {
 
   routeKey(route) {
     return `${route.kind}:${route.slug || ""}`;
+  }
+
+  navigate(path) {
+    if (!path || !path.startsWith("/")) return;
+    const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    if (current === path) return;
+    const anchor = this._navigationProxy || this.shadowRoot?.getElementById("navigation-proxy");
+    if (!anchor) {
+      window.location.assign(path);
+      return;
+    }
+    anchor.href = path;
+    anchor.click();
   }
 
   room(slug) {
@@ -1015,33 +1043,39 @@ class NikasRoomsV11 extends HTMLElement {
     if (!this._registries) {
       return;
     }
-    if (!force && key === this._routeKey) {
-      this.scheduleStatePatch();
-      return;
-    }
+    if (force || !this._viewsBuilt) this.buildRouteViews();
 
     this._routeKey = key;
     this._diagnosticFilter = "*";
-    const room = route.slug ? this.room(route.slug) : null;
-    if (force) this._viewCache.delete(key);
-    let view = this._viewCache.get(key);
-    if (!view) {
-      const template = document.createElement("template");
-      template.innerHTML = route.kind === "overview"
-        ? this.overviewMarkup()
-        : route.kind === "diagnostics"
-          ? this.diagnosticsMarkup(room)
-          : this.roomMarkup(room);
-      view = template.content.firstElementChild;
-      if (!view) return;
-      this._viewCache.set(key, view);
+    let activePanel = null;
+    for (const panel of this._canvas.querySelectorAll("[data-route-panel]")) {
+      const active = panel.dataset.routePanel === key;
+      panel.hidden = !active;
+      panel.classList.toggle("active", active);
+      if (active) activePanel = panel;
+    }
+    if (!activePanel) {
+      this.renderRoute(false, { kind: "overview" });
+      return;
     }
     this._canvas.className = `canvas ${route.kind}`;
-    if (this._canvas.firstElementChild !== view) this._canvas.replaceChildren(view);
-    this.bindControlButtons(view);
-    this.bindView(room);
     this.resetViewportForRoute();
     this.scheduleStatePatch();
+  }
+
+  buildRouteViews() {
+    const panels = [
+      `<section class="route-panel" data-route-panel="overview:">${this.overviewMarkup()}</section>`,
+    ];
+    for (const room of this._rooms) {
+      panels.push(
+        `<section class="route-panel" data-route-panel="room:${room.slug}" hidden>${this.roomMarkup(room)}</section>`,
+        `<section class="route-panel" data-route-panel="diagnostics:${room.slug}" hidden>${this.diagnosticsMarkup(room)}</section>`,
+      );
+    }
+    this._canvas.innerHTML = panels.join("");
+    this._viewsBuilt = true;
+    this.bindControlButtons(this._canvas);
   }
 
   overviewMarkup() {
@@ -1062,14 +1096,14 @@ class NikasRoomsV11 extends HTMLElement {
   roomCard(room) {
     const summary = this.summary(room);
     return `
-      <a class="room-card tone-${summary.tone}" href="/dashboard-rooms-v11/room-${room.slug}"
-         data-summary-room="${room.slug}">
+      <button class="room-card tone-${summary.tone}" type="button"
+              data-route-kind="room" data-route-slug="${room.slug}" data-summary-room="${room.slug}">
         <ha-icon icon="${room.icon}"></ha-icon>
         <span>
           <b>${escapeHtml(room.name)} [${room.no}]</b>
           <small data-summary-text>${escapeHtml(summary.text)}</small>
         </span>
-      </a>`;
+      </button>`;
   }
 
   entityMaintenance(room, entity) {
@@ -1168,8 +1202,8 @@ class NikasRoomsV11 extends HTMLElement {
         ${this.section("Безопасность", "mdi:shield-home", security, room)}
         ${this.section("Оборудование / Медиа", "mdi:devices", equipment, room)}
         ${this.section("Камеры", "mdi:cctv", cameras, room)}
-        <a class="diagnostics" id="diagnostics"
-           href="/dashboard-rooms-v11/room-${room.slug}/diagnostics">Диагностика</a>
+        <button class="diagnostics" type="button"
+                data-route-kind="diagnostics" data-route-slug="${room.slug}">Диагностика</button>
       </div>`;
   }
 
@@ -1228,7 +1262,7 @@ class NikasRoomsV11 extends HTMLElement {
                   </button>`).join("")}
               </article>`).join("") || '<div class="loading">Нет оборудования</div>'}
           </div>
-          <div class="diagnostic-empty" id="diagnostic-empty" hidden>Нет оборудования для выбранного ярлыка.</div>
+          <div class="diagnostic-empty" data-diagnostic-empty hidden>Нет оборудования для выбранного ярлыка.</div>
         </section>
       </div>`;
   }
@@ -1239,17 +1273,20 @@ class NikasRoomsV11 extends HTMLElement {
 
   applyDiagnosticFilter(filter) {
     this._diagnosticFilter = filter;
+    const key = this.routeKey(this._activeRoute || this.route());
+    const activePanel = this._canvas?.querySelector(`[data-route-panel="${key}"]`);
+    if (!activePanel) return;
     let visible = 0;
-    for (const button of this.shadowRoot.querySelectorAll("[data-filter]")) {
+    for (const button of activePanel.querySelectorAll("[data-filter]")) {
       button.classList.toggle("active", button.dataset.filter === filter);
     }
-    for (const item of this.shadowRoot.querySelectorAll("[data-diagnostic-item]")) {
+    for (const item of activePanel.querySelectorAll("[data-diagnostic-item]")) {
       const labels = new Set(String(item.dataset.labels || "").split(/\s+/).filter(Boolean));
       const show = filter === "*" || labels.has(filter);
       item.hidden = !show;
       if (show) visible += 1;
     }
-    const empty = this.shadowRoot.getElementById("diagnostic-empty");
+    const empty = activePanel.querySelector("[data-diagnostic-empty]");
     if (empty) empty.hidden = visible !== 0;
   }
 
@@ -1318,7 +1355,16 @@ class NikasRoomsV11 extends HTMLElement {
     const model = this.headerModel(route);
     if (strong.textContent !== model.title) strong.textContent = model.title;
     if (secondary.textContent !== model.subtitle) secondary.textContent = model.subtitle;
-    title.setAttribute("href", model.backPath || ROOT_PATH);
+    if (route.kind === "overview") {
+      title.dataset.path = model.backPath || SAFE_DEFAULT_ROUTE;
+      delete title.dataset.routeKind;
+      delete title.dataset.routeSlug;
+    } else {
+      delete title.dataset.path;
+      title.dataset.routeKind = route.kind === "diagnostics" ? "room" : "overview";
+      if (route.kind === "diagnostics" && route.slug) title.dataset.routeSlug = route.slug;
+      else delete title.dataset.routeSlug;
+    }
     const destination = model.backPath === ROOT_PATH
       ? "к обзору помещений"
       : route.kind === "diagnostics"
@@ -1329,12 +1375,11 @@ class NikasRoomsV11 extends HTMLElement {
   }
 
   updateTabs(route = this._activeRoute || this.route()) {
-    const roomsLink = this.shadowRoot?.querySelector(`.tabs a[data-path="${ROOT_PATH}"]`);
-    if (!roomsLink) return;
-    roomsLink.classList.add("active");
-    roomsLink.setAttribute("aria-current", "page");
-    if (route.kind === "overview") roomsLink.setAttribute("aria-disabled", "true");
-    else roomsLink.removeAttribute("aria-disabled");
+    const roomsButton = this.shadowRoot?.querySelector('.tabs button[data-route-kind="overview"]');
+    if (!roomsButton) return;
+    roomsButton.classList.add("active");
+    roomsButton.setAttribute("aria-current", "page");
+    roomsButton.disabled = route.kind === "overview";
   }
 
   syncRefreshState() {
@@ -1525,17 +1570,17 @@ class NikasRoomsV11 extends HTMLElement {
         font-family:var(--paper-font-body1_-_font-family,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif)
       }
       *{box-sizing:border-box}
-      button,a{
+      button{
         appearance:none;-webkit-appearance:none;font:inherit;touch-action:manipulation;
         -webkit-tap-highlight-color:transparent
       }
-      a{color:inherit;text-decoration:none}
       .app{
         position:absolute;inset:0;display:grid;min-width:0;min-height:0;overflow:hidden;
         grid-template-rows:calc(62px + env(safe-area-inset-top,0px)) minmax(0,1fr)
           calc(70px + env(safe-area-inset-bottom,0px));
         background:var(--primary-background-color,#f7f7f7);overscroll-behavior:none
       }
+      .navigation-proxy{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);pointer-events:none}
       .header{
         position:relative;z-index:20;min-width:0;padding:env(safe-area-inset-top,0px)
           max(12px,env(safe-area-inset-right,0px)) 0 max(12px,env(safe-area-inset-left,0px));
@@ -1566,7 +1611,7 @@ class NikasRoomsV11 extends HTMLElement {
         background:color-mix(in srgb,var(--primary-color,#03a9d9) 13%,var(--card-background-color,#fff));
         box-shadow:0 2px 7px rgba(23,45,76,.05)
       }
-      .title-return:focus-visible,.shell-button:focus-visible,.tabs a:focus-visible{
+      .title-return:focus-visible,.shell-button:focus-visible,.tabs button:focus-visible{
         outline:2px solid var(--primary-color,#03a9d9);outline-offset:2px
       }
       .viewport{
@@ -1582,15 +1627,15 @@ class NikasRoomsV11 extends HTMLElement {
         display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:2px;background:var(--card-background-color,#fff);
         border-top:1px solid var(--divider-color,#dfe3e8);box-shadow:0 -5px 22px rgba(23,45,76,.08)
       }
-      .tabs a{
+      .tabs button{
         min-width:0;min-height:52px;padding:5px 3px;border:0;border-radius:16px;background:transparent;
         color:var(--secondary-text-color,#68737d);display:flex;flex-direction:column;align-items:center;justify-content:center;
         gap:3px;font-weight:700;cursor:pointer
       }
-      .tabs a ha-icon{--mdc-icon-size:28px}
-      .tabs a small{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;font-weight:700}
-      .tabs a.active{color:var(--primary-color,#03a9d9);background:color-mix(in srgb,var(--primary-color,#03a9d9) 11%,transparent)}
-      .tabs a[aria-disabled="true"]{opacity:1;cursor:default}
+      .tabs button ha-icon{--mdc-icon-size:28px}
+      .tabs button small{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;font-weight:700}
+      .tabs button.active{color:var(--primary-color,#03a9d9);background:color-mix(in srgb,var(--primary-color,#03a9d9) 11%,transparent)}
+      .tabs button:disabled{opacity:1;cursor:default}
       .zoom-toast{
         position:absolute;z-index:40;left:50%;top:calc(68px + env(safe-area-inset-top,0px));
         transform:translate(-50%,-12px);opacity:0;padding:8px 13px;border-radius:999px;
@@ -1598,6 +1643,7 @@ class NikasRoomsV11 extends HTMLElement {
       }
       .zoom-toast.show{opacity:1;transform:translate(-50%,0)}
       .loading{padding:24px;text-align:center;color:var(--secondary-text-color,#666);font-size:14px}
+      .route-panel[hidden]{display:none!important}
       .registry-message{display:grid;justify-items:center;gap:8px}
       .registry-message strong{color:var(--primary-text-color,#222);font-size:16px}
       .registry-message small{max-width:320px;font-size:13px;line-height:1.35}

@@ -68,7 +68,7 @@ def test_frontend_has_autonomous_fixed_shell_and_gesture_zoom() -> None:
     assert 'addEventListener("pointerdown"' in text
     assert 'addEventListener("pointerup"' in text
     assert 'addEventListener("touchend"' in text
-    assert "bindControlButtons(view)" in text
+    assert "bindControlButtons(this._canvas)" in text
     assert "directTouchEnd(event)" in text
     assert "event.composedPath()" in text
     assert "activateControl(button)" in text
@@ -78,15 +78,13 @@ def test_frontend_has_autonomous_fixed_shell_and_gesture_zoom() -> None:
     assert "blur(18px) saturate(130%)" in text
     assert "--mdc-icon-size:28px" in text
     assert "history.back(" not in text
-    assert '<a class="title-return"' in text
-    assert '<a data-base="home" href=' in text
-    assert '<a data-path="${ROOT_PATH}" href="${ROOT_PATH}"' in text
-    assert '<a class="room-card' in text
-    assert 'href="/dashboard-rooms-v11/room-${room.slug}"' in text
-    assert 'href="/dashboard-rooms-v11/room-${room.slug}/diagnostics"' in text
-    assert "navigation-proxy" not in text
-    assert "anchor.click()" not in text
-    assert "window.location.assign" not in text
+    assert '<button class="title-return"' in text
+    assert 'data-route-kind="overview"' in text
+    assert '<button class="room-card' in text
+    assert 'data-route-kind="room" data-route-slug="${room.slug}"' in text
+    assert 'data-route-kind="diagnostics" data-route-slug="${room.slug}"' in text
+    assert 'id="navigation-proxy"' in text
+    assert "anchor.click()" in text
     assert "window.history.pushState" not in text
     assert 'new Event("location-changed")' not in text
     assert "import " not in text
@@ -99,8 +97,10 @@ def test_state_updates_do_not_rebuild_shell() -> None:
     assert "node.textContent = value" in patch
     assert "card.classList.toggle" in patch
     assert "shadowRoot.innerHTML" not in patch
-    assert "this._viewCache = new Map()" in text
-    assert "this._canvas.replaceChildren(view)" in text
+    assert "buildRouteViews()" in text
+    assert 'this._canvas.querySelectorAll("[data-route-panel]")' in text
+    assert "panel.hidden = !active" in text
+    assert "replaceChildren" not in text
 
 
 def test_frontend_never_navigates_into_preserved_yaml_rooms() -> None:
@@ -118,8 +118,8 @@ def test_frontend_resolves_the_runtime_new_house_panel() -> None:
     assert "hass?.panels" in text
     assert '"/dashboard-house-v12/home"' in text
     assert "detectedHouseRoute(this._hass)" in text
-    assert '.tabs a[data-base="home"]' in text
-    assert 'homeLink.setAttribute("href", route)' in text
+    assert '.tabs button[aria-label="Дом"]' in text
+    assert "homeButton.dataset.path = route" in text
 
 
 def test_shipped_brand_asset_is_present() -> None:

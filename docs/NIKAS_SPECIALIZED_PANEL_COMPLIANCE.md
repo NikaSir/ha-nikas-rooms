@@ -14,7 +14,7 @@
 | Команды | Нет прямых toggle/service calls; только штатный `more-info` |
 | Мобильные нажатия | Прямой `touchend`, резервный `pointerup` и отсечение synthetic click |
 | Ссылка «Дом» | Runtime-поиск `nikas-house-overview`; поддержаны `/dashboard-house-v11/home` и `/dashboard-house-v12/home` |
-| Версия | UI `11.0.12`, cache key и panel manifest согласованы |
+| Версия | UI `11.0.13`, cache key и panel manifest согласованы |
 
 ## Проверка на устройстве
 

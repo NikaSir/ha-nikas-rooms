@@ -235,18 +235,23 @@ const run = async () => {
     no: "01",
     icon: "mdi:bathtub",
   });
-  assert.match(roomMarkup, /<a class="room-card/);
-  assert.match(roomMarkup, /href="\/dashboard-rooms-v11\/room-bathroom"/);
+  assert.match(roomMarkup, /<button class="room-card/);
+  assert.match(roomMarkup, /data-route-kind="room" data-route-slug="bathroom"/);
   const detailMarkup = navigationPanel.roomMarkup({
     area: { name: "Ванная" },
     slug: "bathroom",
     entities: [],
     devices: [],
   });
-  assert.match(detailMarkup, /href="\/dashboard-rooms-v11\/room-bathroom\/diagnostics"/);
-  assert.match(frontendSource, /<a class="title-return"/);
-  assert.match(frontendSource, /<a data-base="home" href=/);
-  assert.doesNotMatch(frontendSource, /navigation-proxy/);
+  assert.match(detailMarkup, /data-route-kind="diagnostics" data-route-slug="bathroom"/);
+  assert.match(frontendSource, /<button class="title-return"/);
+  assert.match(frontendSource, /data-route-kind="overview"/);
+  assert.match(frontendSource, /navigation-proxy/);
+  const internalRoomButton = fakeButton({ dataset: { routeKind: "room", routeSlug: "bathroom" } });
+  assert.equal(navigationPanel.activateControl(internalRoomButton), true);
+  assert.equal(navigationPanel.__lastRenderArgs[0], false);
+  assert.equal(navigationPanel.__lastRenderArgs[1].kind, "room");
+  assert.equal(navigationPanel.__lastRenderArgs[1].slug, "bathroom");
 
   const entityButton = fakeButton({ dataset: { entity: "sensor.bathroom_temperature" } });
   assert.equal(
