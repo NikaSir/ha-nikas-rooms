@@ -16,7 +16,7 @@ spec:
     sha256: a9bceb0a48edd0932e6099149d55e5bde5bc9f6b427b906a4648c493229149a0
     source_ui_version: 10.8.18
   ui:
-    version: 11.0.11
+    version: 11.0.12
     standard: "1.9"
     frontend_bundle: nikas-rooms-panel.js
     autonomous: true
@@ -47,7 +47,7 @@ spec:
     direct_service_calls: false
   navigation:
     house_target: runtime panel with web component nikas-house-overview
-    internal_model: Home Assistant anchor router with full document fallback
+    internal_model: native same-origin anchors with browser fallback
     accepted_house_routes:
       - /dashboard-house-v11/home
       - /dashboard-house-v12/home

@@ -1,5 +1,5 @@
 const ELEMENT_NAME = "nikas-rooms-v11";
-const UI_VERSION = "11.0.11";
+const UI_VERSION = "11.0.12";
 const PANEL_ROOT = "/dashboard-rooms-v11";
 const ROOT_PATH = "/dashboard-rooms-v11/rooms";
 const ZOOM_KEY = "nikas.rooms.zoom.v1";
@@ -265,7 +265,6 @@ class NikasRoomsV11 extends HTMLElement {
     this._manualActivationUntil = 0;
     this._boundControls = new WeakSet();
     this._directTouchSessions = new WeakMap();
-    this._navigationProxy = null;
     this._onLocation = () => {
       if (this.isRoomsPath()) this.renderRoute();
     };
@@ -334,9 +333,9 @@ class NikasRoomsV11 extends HTMLElement {
           <button class="shell-button menu" type="button" aria-label="Меню Home Assistant">
             <ha-icon icon="mdi:menu"></ha-icon>
           </button>
-          <button class="title-return" type="button" aria-label="Вернуться">
+          <a class="title-return" href="${this._houseRoute || SAFE_DEFAULT_ROUTE}" aria-label="Вернуться">
             <strong>Помещения</strong><small>UI v${UI_VERSION}</small>
-          </button>
+          </a>
           <button class="shell-button refresh" type="button" aria-label="Обновить">
             <ha-icon icon="mdi:refresh"></ha-icon>
           </button>
@@ -347,19 +346,17 @@ class NikasRoomsV11 extends HTMLElement {
           </section>
         </main>
         <nav class="tabs" aria-label="Основные панели NikaS">
-          <button type="button" data-base="home" aria-label="Дом"><ha-icon icon="mdi:home-outline"></ha-icon><small>Дом</small></button>
-          <button type="button" data-path="${ROOT_PATH}" aria-label="Помещения"><ha-icon icon="mdi:floor-plan"></ha-icon><small>Помещения</small></button>
-          <button type="button" data-path="/dashboard-actions/home" aria-label="Действия"><ha-icon icon="mdi:lightning-bolt-outline"></ha-icon><small>Действия</small></button>
-          <button type="button" data-path="/dashboard-infrastructure/overview" aria-label="Инфраструктура"><ha-icon icon="mdi:server-network"></ha-icon><small>Инфра</small></button>
+          <a data-base="home" href="${this.houseRoute()}" aria-label="Дом"><ha-icon icon="mdi:home-outline"></ha-icon><small>Дом</small></a>
+          <a data-path="${ROOT_PATH}" href="${ROOT_PATH}" aria-label="Помещения"><ha-icon icon="mdi:floor-plan"></ha-icon><small>Помещения</small></a>
+          <a data-path="/dashboard-actions/home" href="/dashboard-actions/home" aria-label="Действия"><ha-icon icon="mdi:lightning-bolt-outline"></ha-icon><small>Действия</small></a>
+          <a data-path="/dashboard-infrastructure/overview" href="/dashboard-infrastructure/overview" aria-label="Инфраструктура"><ha-icon icon="mdi:server-network"></ha-icon><small>Инфра</small></a>
         </nav>
-        <a class="navigation-proxy" id="navigation-proxy" href="${ROOT_PATH}" tabindex="-1" aria-hidden="true"></a>
         <div class="zoom-toast" aria-live="polite">Масштаб 100%</div>
       </div>`;
 
     this._viewport = this.shadowRoot.getElementById("viewport");
     this._canvas = this.shadowRoot.getElementById("canvas");
     this._toast = this.shadowRoot.querySelector(".zoom-toast");
-    this._navigationProxy = this.shadowRoot.getElementById("navigation-proxy");
     this.bindControlButtons(this.shadowRoot);
     this.shadowRoot.addEventListener("click", (event) => this.controlClick(event));
     this.shadowRoot.addEventListener("pointerdown", (event) => this.tapPointerDown(event), { passive: true });
@@ -380,7 +377,11 @@ class NikasRoomsV11 extends HTMLElement {
     if (!route) return;
     this._houseRoute = route;
     if (!this._returnRoute || isHouseRoute(this._returnRoute)) this._returnRoute = route;
-    if (this._mounted) this.updateHeader();
+    if (this._mounted) {
+      this.updateHeader();
+      const homeLink = this.shadowRoot?.querySelector('.tabs a[data-base="home"]');
+      if (homeLink) homeLink.setAttribute("href", route);
+    }
   }
 
   houseRoute() {
@@ -494,14 +495,6 @@ class NikasRoomsV11 extends HTMLElement {
       this.loadRegistries(true);
       return true;
     }
-    if (button.classList?.contains("title-return")) {
-      if (button.dataset?.backPath) this.navigate(button.dataset.backPath);
-      return true;
-    }
-    if (button.dataset?.room) {
-      this.navigate(`/dashboard-rooms-v11/room-${button.dataset.room}`);
-      return true;
-    }
     if (button.dataset?.entity) {
       this.dispatchEvent(new CustomEvent("hass-more-info", {
         bubbles: true,
@@ -510,22 +503,8 @@ class NikasRoomsV11 extends HTMLElement {
       }));
       return true;
     }
-    if (button.id === "diagnostics") {
-      const currentRoute = this._activeRoute || this.route();
-      const room = currentRoute.slug ? this.room(currentRoute.slug) : null;
-      if (room) this.navigate(`/dashboard-rooms-v11/room-${room.slug}/diagnostics`);
-      return true;
-    }
     if (button.dataset?.filter !== undefined) {
       this.applyDiagnosticFilter(button.dataset.filter || "*");
-      return true;
-    }
-    if (button.dataset?.base === "home") {
-      this.navigate(this.houseRoute());
-      return true;
-    }
-    if (button.dataset?.path) {
-      this.navigate(button.dataset.path);
       return true;
     }
     return false;
@@ -857,19 +836,6 @@ class NikasRoomsV11 extends HTMLElement {
     return `${route.kind}:${route.slug || ""}`;
   }
 
-  navigate(path) {
-    if (!path || !path.startsWith("/")) return;
-    const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-    if (current === path) return;
-    const anchor = this._navigationProxy || this.shadowRoot?.getElementById("navigation-proxy");
-    if (!anchor) {
-      window.location.assign(path);
-      return;
-    }
-    anchor.href = path;
-    anchor.click();
-  }
-
   room(slug) {
     return this._rooms.find((room) => room.slug === slug) || null;
   }
@@ -1096,14 +1062,14 @@ class NikasRoomsV11 extends HTMLElement {
   roomCard(room) {
     const summary = this.summary(room);
     return `
-      <button class="room-card tone-${summary.tone}" type="button"
-              data-room="${room.slug}" data-summary-room="${room.slug}">
+      <a class="room-card tone-${summary.tone}" href="/dashboard-rooms-v11/room-${room.slug}"
+         data-summary-room="${room.slug}">
         <ha-icon icon="${room.icon}"></ha-icon>
         <span>
           <b>${escapeHtml(room.name)} [${room.no}]</b>
           <small data-summary-text>${escapeHtml(summary.text)}</small>
         </span>
-      </button>`;
+      </a>`;
   }
 
   entityMaintenance(room, entity) {
@@ -1202,7 +1168,8 @@ class NikasRoomsV11 extends HTMLElement {
         ${this.section("Безопасность", "mdi:shield-home", security, room)}
         ${this.section("Оборудование / Медиа", "mdi:devices", equipment, room)}
         ${this.section("Камеры", "mdi:cctv", cameras, room)}
-        <button class="diagnostics" id="diagnostics" type="button">Диагностика</button>
+        <a class="diagnostics" id="diagnostics"
+           href="/dashboard-rooms-v11/room-${room.slug}/diagnostics">Диагностика</a>
       </div>`;
   }
 
@@ -1351,7 +1318,7 @@ class NikasRoomsV11 extends HTMLElement {
     const model = this.headerModel(route);
     if (strong.textContent !== model.title) strong.textContent = model.title;
     if (secondary.textContent !== model.subtitle) secondary.textContent = model.subtitle;
-    title.dataset.backPath = model.backPath || "";
+    title.setAttribute("href", model.backPath || ROOT_PATH);
     const destination = model.backPath === ROOT_PATH
       ? "к обзору помещений"
       : route.kind === "diagnostics"
@@ -1362,11 +1329,12 @@ class NikasRoomsV11 extends HTMLElement {
   }
 
   updateTabs(route = this._activeRoute || this.route()) {
-    const roomsButton = this.shadowRoot?.querySelector(`.tabs button[data-path="${ROOT_PATH}"]`);
-    if (!roomsButton) return;
-    roomsButton.classList.add("active");
-    roomsButton.setAttribute("aria-current", "page");
-    roomsButton.disabled = route.kind === "overview";
+    const roomsLink = this.shadowRoot?.querySelector(`.tabs a[data-path="${ROOT_PATH}"]`);
+    if (!roomsLink) return;
+    roomsLink.classList.add("active");
+    roomsLink.setAttribute("aria-current", "page");
+    if (route.kind === "overview") roomsLink.setAttribute("aria-disabled", "true");
+    else roomsLink.removeAttribute("aria-disabled");
   }
 
   syncRefreshState() {
@@ -1557,17 +1525,17 @@ class NikasRoomsV11 extends HTMLElement {
         font-family:var(--paper-font-body1_-_font-family,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif)
       }
       *{box-sizing:border-box}
-      button{
+      button,a{
         appearance:none;-webkit-appearance:none;font:inherit;touch-action:manipulation;
         -webkit-tap-highlight-color:transparent
       }
+      a{color:inherit;text-decoration:none}
       .app{
         position:absolute;inset:0;display:grid;min-width:0;min-height:0;overflow:hidden;
         grid-template-rows:calc(62px + env(safe-area-inset-top,0px)) minmax(0,1fr)
           calc(70px + env(safe-area-inset-bottom,0px));
         background:var(--primary-background-color,#f7f7f7);overscroll-behavior:none
       }
-      .navigation-proxy{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);pointer-events:none}
       .header{
         position:relative;z-index:20;min-width:0;padding:env(safe-area-inset-top,0px)
           max(12px,env(safe-area-inset-right,0px)) 0 max(12px,env(safe-area-inset-left,0px));
@@ -1598,7 +1566,7 @@ class NikasRoomsV11 extends HTMLElement {
         background:color-mix(in srgb,var(--primary-color,#03a9d9) 13%,var(--card-background-color,#fff));
         box-shadow:0 2px 7px rgba(23,45,76,.05)
       }
-      .title-return:focus-visible,.shell-button:focus-visible,.tabs button:focus-visible{
+      .title-return:focus-visible,.shell-button:focus-visible,.tabs a:focus-visible{
         outline:2px solid var(--primary-color,#03a9d9);outline-offset:2px
       }
       .viewport{
@@ -1614,15 +1582,15 @@ class NikasRoomsV11 extends HTMLElement {
         display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:2px;background:var(--card-background-color,#fff);
         border-top:1px solid var(--divider-color,#dfe3e8);box-shadow:0 -5px 22px rgba(23,45,76,.08)
       }
-      .tabs button{
+      .tabs a{
         min-width:0;min-height:52px;padding:5px 3px;border:0;border-radius:16px;background:transparent;
         color:var(--secondary-text-color,#68737d);display:flex;flex-direction:column;align-items:center;justify-content:center;
         gap:3px;font-weight:700;cursor:pointer
       }
-      .tabs button ha-icon{--mdc-icon-size:28px}
-      .tabs button small{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;font-weight:700}
-      .tabs button.active{color:var(--primary-color,#03a9d9);background:color-mix(in srgb,var(--primary-color,#03a9d9) 11%,transparent)}
-      .tabs button:disabled{opacity:1;cursor:default}
+      .tabs a ha-icon{--mdc-icon-size:28px}
+      .tabs a small{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;font-weight:700}
+      .tabs a.active{color:var(--primary-color,#03a9d9);background:color-mix(in srgb,var(--primary-color,#03a9d9) 11%,transparent)}
+      .tabs a[aria-disabled="true"]{opacity:1;cursor:default}
       .zoom-toast{
         position:absolute;z-index:40;left:50%;top:calc(68px + env(safe-area-inset-top,0px));
         transform:translate(-50%,-12px);opacity:0;padding:8px 13px;border-radius:999px;
@@ -1693,7 +1661,8 @@ class NikasRoomsV11 extends HTMLElement {
       .device button{grid-template-columns:minmax(0,1fr) auto}
       .diagnostics{
         width:100%;min-height:52px;border:1px solid var(--divider-color,#ddd);border-radius:16px;
-        background:var(--card-background-color,#fff);font-size:17px;font-weight:800;color:inherit
+        background:var(--card-background-color,#fff);font-size:17px;font-weight:800;color:inherit;
+        display:grid;place-items:center
       }
       .diagnostic-card{
         background:var(--card-background-color,#fff);border:1px solid var(--divider-color,#ddd);

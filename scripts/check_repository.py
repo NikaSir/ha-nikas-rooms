@@ -36,10 +36,10 @@ def main() -> None:
     require(len(reference.get("views", [])) == 19, "reference YAML must contain overview plus 18 rooms")
 
     require(manifest["domain"] == "nikas_rooms", "integration domain drift")
-    require(manifest["version"] == "0.1.11", "integration version drift")
-    require(panel_manifest["ui_version"] == "11.0.11", "panel UI version drift")
-    require(standard["ui_version"] == "11.0.11", "standard UI version drift")
-    require(contract["spec"]["ui"]["version"] == "11.0.11", "contract UI version drift")
+    require(manifest["version"] == "0.1.12", "integration version drift")
+    require(panel_manifest["ui_version"] == "11.0.12", "panel UI version drift")
+    require(standard["ui_version"] == "11.0.12", "standard UI version drift")
+    require(contract["spec"]["ui"]["version"] == "11.0.12", "contract UI version drift")
     require(panel_manifest["entry_route"] == "/dashboard-rooms-v11/rooms", "entry route drift")
     require(panel_manifest["preserved_yaml_route"] == "/dashboard-rooms/rooms", "preserved route drift")
 
@@ -57,21 +57,27 @@ def main() -> None:
     )
     require(
         'HOUSE_PANEL_COMPONENT = "nikas-house-overview"' in source
-        and "this.navigate(this.houseRoute())" in source,
+        and '.tabs a[data-base="home"]' in source
+        and 'homeLink.setAttribute("href", route)' in source,
         "new House panel route resolution missing",
     )
     require(
-        'id="navigation-proxy"' in source
-        and "anchor.href = path" in source
-        and "anchor.click()" in source,
-        "Home Assistant anchor-router bridge missing",
+        '<a class="title-return"' in source
+        and '<a data-base="home" href=' in source
+        and '<a data-path="${ROOT_PATH}" href="${ROOT_PATH}"' in source
+        and '<a class="room-card' in source
+        and 'href="/dashboard-rooms-v11/room-${room.slug}"' in source
+        and 'href="/dashboard-rooms-v11/room-${room.slug}/diagnostics"' in source,
+        "visible Home Assistant navigation links missing",
     )
-    navigate = source[source.index("navigate(path) {") : source.index("room(slug) {")]
     require(
-        "window.history.pushState" not in navigate
+        "navigation-proxy" not in source
+        and "anchor.click()" not in source
+        and "window.location.assign" not in source
+        and "window.history.pushState" not in source
         and 'new Event("location-changed")' not in source
-        and "window.location.assign(path)" in navigate,
-        "navigation must use the Home Assistant router with a full-load fallback",
+        and "navigate(path)" not in source,
+        "navigation must remain native anchor behavior without synthetic routing",
     )
     require("callService(" not in source and ".turn_on" not in source, "direct commands are forbidden")
     require("/dashboard-rooms/room-" not in source, "frontend must not navigate into preserved YAML")

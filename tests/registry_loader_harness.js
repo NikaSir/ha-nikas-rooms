@@ -111,7 +111,8 @@ const context = {
 };
 context.globalThis = context;
 
-vm.runInNewContext(fs.readFileSync(frontendPath, "utf8"), context, {
+const frontendSource = fs.readFileSync(frontendPath, "utf8");
+vm.runInNewContext(frontendSource, context, {
   filename: frontendPath,
 });
 
@@ -212,20 +213,10 @@ const run = async () => {
       },
     },
   });
-  const visited = [];
-  navigationPanel.navigate = (route) => visited.push(route);
-  const homeButton = fakeButton({ dataset: { base: "home" } });
-  const roomButton = fakeButton({ dataset: { room: "bathroom" } });
-  assert.equal(navigationPanel.activateControl(homeButton), true);
-  assert.equal(visited.at(-1), "/dashboard-house-v12/home");
-  assert.equal(navigationPanel.activateControl(roomButton), true);
-  assert.equal(visited.at(-1), "/dashboard-rooms-v11/room-bathroom");
   navigationPanel._rooms = [{ slug: "bathroom", name: "Ванная" }];
   navigationPanel._houseRoute = "/dashboard-house-v12/home";
   navigationPanel._activeRoute = { kind: "room", slug: "bathroom" };
-  const diagnosticsButton = fakeButton({ id: "diagnostics" });
-  assert.equal(navigationPanel.activateControl(diagnosticsButton), true);
-  assert.equal(visited.at(-1), "/dashboard-rooms-v11/room-bathroom/diagnostics");
+  assert.equal(navigationPanel.houseRoute(), "/dashboard-house-v12/home");
   assert.equal(
     navigationPanel.headerModel({ kind: "overview" }).backPath,
     "/dashboard-house-v12/home",
@@ -238,18 +229,35 @@ const run = async () => {
     navigationPanel.headerModel({ kind: "diagnostics", slug: "bathroom" }).backPath,
     "/dashboard-rooms-v11/room-bathroom",
   );
-  assert.equal(
-    navigationPanel.actionButton({ composedPath: () => [roomButton, navigationPanel.shadowRoot] }),
-    roomButton,
-  );
+  const roomMarkup = navigationPanel.roomCard({
+    slug: "bathroom",
+    name: "Ванная",
+    no: "01",
+    icon: "mdi:bathtub",
+  });
+  assert.match(roomMarkup, /<a class="room-card/);
+  assert.match(roomMarkup, /href="\/dashboard-rooms-v11\/room-bathroom"/);
+  const detailMarkup = navigationPanel.roomMarkup({
+    area: { name: "Ванная" },
+    slug: "bathroom",
+    entities: [],
+    devices: [],
+  });
+  assert.match(detailMarkup, /href="\/dashboard-rooms-v11\/room-bathroom\/diagnostics"/);
+  assert.match(frontendSource, /<a class="title-return"/);
+  assert.match(frontendSource, /<a data-base="home" href=/);
+  assert.doesNotMatch(frontendSource, /navigation-proxy/);
 
-  const tapVisited = [];
-  navigationPanel.navigate = (route) => tapVisited.push(route);
+  const entityButton = fakeButton({ dataset: { entity: "sensor.bathroom_temperature" } });
+  assert.equal(
+    navigationPanel.actionButton({ composedPath: () => [entityButton, navigationPanel.shadowRoot] }),
+    entityButton,
+  );
   const pointerEvent = (type, extra = {}) => ({
     cancelable: true,
     clientX: 20,
     clientY: 30,
-    composedPath: () => [roomButton, navigationPanel.shadowRoot],
+    composedPath: () => [entityButton, navigationPanel.shadowRoot],
     pointerId: 7,
     pointerType: "touch",
     preventDefault: () => {},
@@ -260,11 +268,12 @@ const run = async () => {
   });
   navigationPanel.tapPointerDown(pointerEvent("pointerdown"));
   navigationPanel.tapPointerUp(pointerEvent("pointerup"));
-  assert.deepEqual(tapVisited, ["/dashboard-rooms-v11/room-bathroom"]);
+  assert.equal(navigationPanel.__events.length, 1);
+  assert.equal(navigationPanel.__events[0].detail.entityId, "sensor.bathroom_temperature");
   navigationPanel.controlClick(pointerEvent("click"));
-  assert.deepEqual(
-    tapVisited,
-    ["/dashboard-rooms-v11/room-bathroom"],
+  assert.equal(
+    navigationPanel.__events.length,
+    1,
     "the synthetic click after a touch activation must be deduplicated",
   );
 
@@ -279,64 +288,36 @@ const run = async () => {
     clientX: 30,
     pointerId: 8,
   }));
-  assert.deepEqual(
-    tapVisited,
-    ["/dashboard-rooms-v11/room-bathroom"],
-    "finger movement must not activate a room card",
-  );
+  assert.equal(navigationPanel.__events.length, 1, "finger movement must not activate a control");
 
-  const directTouchVisited = [];
   const directTouchPanel = makePanel({});
-  directTouchPanel.navigate = (route) => directTouchVisited.push(route);
-  const directRoomButton = fakeButton({ dataset: { room: "kitchen" } });
+  const directEntityButton = fakeButton({ dataset: { entity: "sensor.kitchen_temperature" } });
   const directTouch = (x, y) => ({ identifier: 11, clientX: x, clientY: y });
   directTouchPanel.directTouchStart({
-    currentTarget: directRoomButton,
+    currentTarget: directEntityButton,
     touches: [directTouch(40, 50)],
   });
   let directPrevented = false;
   directTouchPanel.directTouchEnd({
     cancelable: true,
     changedTouches: { 0: directTouch(42, 52), length: 1 },
-    currentTarget: directRoomButton,
+    currentTarget: directEntityButton,
     preventDefault: () => { directPrevented = true; },
     touches: [],
   });
-  assert.deepEqual(directTouchVisited, ["/dashboard-rooms-v11/room-kitchen"]);
+  assert.equal(directTouchPanel.__events.length, 1);
+  assert.equal(directTouchPanel.__events[0].detail.entityId, "sensor.kitchen_temperature");
   assert.equal(directPrevented, true);
   directTouchPanel.directControlClick({
-    currentTarget: directRoomButton,
+    currentTarget: directEntityButton,
     preventDefault: () => {},
     stopPropagation: () => {},
   });
-  assert.deepEqual(
-    directTouchVisited,
-    ["/dashboard-rooms-v11/room-kitchen"],
+  assert.equal(
+    directTouchPanel.__events.length,
+    1,
     "the synthetic click after direct touchend must be deduplicated",
   );
-
-  location.assigned = [];
-  const routedPaths = [];
-  const anchorNavigationPanel = makePanel({});
-  anchorNavigationPanel._navigationProxy = {
-    href: "",
-    click() { routedPaths.push(this.href); },
-  };
-  anchorNavigationPanel.navigate("/dashboard-rooms-v11/room-attic");
-  assert.deepEqual(routedPaths, ["/dashboard-rooms-v11/room-attic"]);
-  assert.deepEqual(location.assigned, []);
-  assert.equal(anchorNavigationPanel.__renderCount, undefined);
-  assert.equal(location.pathname, "/dashboard-rooms-v11/rooms");
-  assert.equal(navigationEvents.length, 0);
-  anchorNavigationPanel.navigate("/dashboard-actions/home");
-  assert.deepEqual(routedPaths, [
-    "/dashboard-rooms-v11/room-attic",
-    "/dashboard-actions/home",
-  ]);
-
-  const fallbackNavigationPanel = makePanel({});
-  fallbackNavigationPanel.navigate("/dashboard-rooms-v11/room-greenhouse");
-  assert.deepEqual(location.assigned, ["/dashboard-rooms-v11/room-greenhouse"]);
 
   const diagnosticsMarkupPanel = makePanel({
     states: {
