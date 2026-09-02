@@ -1,5 +1,5 @@
 const ELEMENT_NAME = "nikas-rooms-v11";
-const UI_VERSION = "11.0.10";
+const UI_VERSION = "11.0.11";
 const PANEL_ROOT = "/dashboard-rooms-v11";
 const ROOT_PATH = "/dashboard-rooms-v11/rooms";
 const ZOOM_KEY = "nikas.rooms.zoom.v1";
@@ -265,6 +265,7 @@ class NikasRoomsV11 extends HTMLElement {
     this._manualActivationUntil = 0;
     this._boundControls = new WeakSet();
     this._directTouchSessions = new WeakMap();
+    this._navigationProxy = null;
     this._onLocation = () => {
       if (this.isRoomsPath()) this.renderRoute();
     };
@@ -351,12 +352,14 @@ class NikasRoomsV11 extends HTMLElement {
           <button type="button" data-path="/dashboard-actions/home" aria-label="Действия"><ha-icon icon="mdi:lightning-bolt-outline"></ha-icon><small>Действия</small></button>
           <button type="button" data-path="/dashboard-infrastructure/overview" aria-label="Инфраструктура"><ha-icon icon="mdi:server-network"></ha-icon><small>Инфра</small></button>
         </nav>
+        <a class="navigation-proxy" id="navigation-proxy" href="${ROOT_PATH}" tabindex="-1" aria-hidden="true"></a>
         <div class="zoom-toast" aria-live="polite">Масштаб 100%</div>
       </div>`;
 
     this._viewport = this.shadowRoot.getElementById("viewport");
     this._canvas = this.shadowRoot.getElementById("canvas");
     this._toast = this.shadowRoot.querySelector(".zoom-toast");
+    this._navigationProxy = this.shadowRoot.getElementById("navigation-proxy");
     this.bindControlButtons(this.shadowRoot);
     this.shadowRoot.addEventListener("click", (event) => this.controlClick(event));
     this.shadowRoot.addEventListener("pointerdown", (event) => this.tapPointerDown(event), { passive: true });
@@ -858,7 +861,13 @@ class NikasRoomsV11 extends HTMLElement {
     if (!path || !path.startsWith("/")) return;
     const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
     if (current === path) return;
-    window.location.assign(path);
+    const anchor = this._navigationProxy || this.shadowRoot?.getElementById("navigation-proxy");
+    if (!anchor) {
+      window.location.assign(path);
+      return;
+    }
+    anchor.href = path;
+    anchor.click();
   }
 
   room(slug) {
@@ -1558,6 +1567,7 @@ class NikasRoomsV11 extends HTMLElement {
           calc(70px + env(safe-area-inset-bottom,0px));
         background:var(--primary-background-color,#f7f7f7);overscroll-behavior:none
       }
+      .navigation-proxy{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);pointer-events:none}
       .header{
         position:relative;z-index:20;min-width:0;padding:env(safe-area-inset-top,0px)
           max(12px,env(safe-area-inset-right,0px)) 0 max(12px,env(safe-area-inset-left,0px));

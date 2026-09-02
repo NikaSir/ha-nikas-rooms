@@ -316,17 +316,27 @@ const run = async () => {
   );
 
   location.assigned = [];
-  const fullNavigationPanel = makePanel({});
-  fullNavigationPanel.navigate("/dashboard-rooms-v11/room-attic");
-  assert.deepEqual(location.assigned, ["/dashboard-rooms-v11/room-attic"]);
-  assert.equal(fullNavigationPanel.__renderCount, undefined);
+  const routedPaths = [];
+  const anchorNavigationPanel = makePanel({});
+  anchorNavigationPanel._navigationProxy = {
+    href: "",
+    click() { routedPaths.push(this.href); },
+  };
+  anchorNavigationPanel.navigate("/dashboard-rooms-v11/room-attic");
+  assert.deepEqual(routedPaths, ["/dashboard-rooms-v11/room-attic"]);
+  assert.deepEqual(location.assigned, []);
+  assert.equal(anchorNavigationPanel.__renderCount, undefined);
   assert.equal(location.pathname, "/dashboard-rooms-v11/rooms");
   assert.equal(navigationEvents.length, 0);
-  fullNavigationPanel.navigate("/dashboard-actions/home");
-  assert.deepEqual(location.assigned, [
+  anchorNavigationPanel.navigate("/dashboard-actions/home");
+  assert.deepEqual(routedPaths, [
     "/dashboard-rooms-v11/room-attic",
     "/dashboard-actions/home",
   ]);
+
+  const fallbackNavigationPanel = makePanel({});
+  fallbackNavigationPanel.navigate("/dashboard-rooms-v11/room-greenhouse");
+  assert.deepEqual(location.assigned, ["/dashboard-rooms-v11/room-greenhouse"]);
 
   const diagnosticsMarkupPanel = makePanel({
     states: {

@@ -78,9 +78,13 @@ def test_frontend_has_autonomous_fixed_shell_and_gesture_zoom() -> None:
     assert "blur(18px) saturate(130%)" in text
     assert "--mdc-icon-size:28px" in text
     assert "history.back(" not in text
+    assert 'id="navigation-proxy"' in text
+    assert "anchor.click()" in text
     assert 'window.location.assign(path)' in text
     navigate = text[text.index("navigate(path) {") : text.index("room(slug) {")]
     assert "window.history.pushState" not in navigate
+    assert "anchor.href = path" in navigate
+    assert "anchor.click()" in navigate
     assert 'window.location.assign(path)' in navigate
     assert 'new Event("location-changed")' not in text
     assert "import " not in text
