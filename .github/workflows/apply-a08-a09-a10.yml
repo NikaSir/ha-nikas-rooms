@@ -22,39 +22,36 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Apply exact audit patch
+      - name: Align one-shot patch script
         run: |
           python - <<'PY'
           from pathlib import Path
           path = Path('scripts/apply_a08_a09_a10_patch.py')
           text = path.read_text(encoding='utf-8')
-          old = "replace_once(FRONTEND, '          diagnosticDevices: areaDevices,', '          diagnosticDevices: relevantDevices,')"
-          new = "replace_once(FRONTEND, '        diagnosticDevices: areaDevices,', '        diagnosticDevices: relevantDevices,')"
-          if text.count(old) != 1:
+          old_indent = "replace_once(FRONTEND, '          diagnosticDevices: areaDevices,', '          diagnosticDevices: relevantDevices,')"
+          new_indent = "replace_once(FRONTEND, '        diagnosticDevices: areaDevices,', '        diagnosticDevices: relevantDevices,')"
+          if text.count(old_indent) != 1:
               raise SystemExit('diagnosticDevices matcher drift')
-          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          text = text.replace(old_indent, new_indent, 1)
+          bs = chr(92)
+          old_escape = f'text.index("{bs}n{bs}n  mountShell() {{")]'
+          new_escape = f'text.index("{bs}{bs}n{bs}{bs}n  mountShell() {{")]'
+          if text.count(old_escape) != 1:
+              raise SystemExit('lifecycle test escape matcher drift')
+          path.write_text(text.replace(old_escape, new_escape, 1), encoding='utf-8')
           PY
+      - name: Apply exact audit patch
+        run: |
           python scripts/apply_a08_a09_a10_patch.py
           python - <<'PY'
           from pathlib import Path
-
-          harness = Path('tests/registry_loader_harness.js')
-          text = harness.read_text(encoding='utf-8')
+          path = Path('tests/registry_loader_harness.js')
+          text = path.read_text(encoding='utf-8')
           old = 'lifecyclePanel._stateFrame = window.setTimeout(() => {}, 60_000);'
           new = 'lifecyclePanel._stateFrame = context.window.setTimeout(() => {}, 60_000);'
           if text.count(old) != 1:
               raise SystemExit('runtime harness timeout patch drift')
-          harness.write_text(text.replace(old, new, 1), encoding='utf-8')
-
-          frontend_test = Path('tests/test_frontend_contract.py')
-          text = frontend_test.read_text(encoding='utf-8')
-          old = '''block = text[text.index("  disconnectedCallback() {") : text.index("
-
-  mountShell() {")]'''
-          new = 'block = text[text.index("  disconnectedCallback() {") : text.index("\\n\\n  mountShell() {")]'
-          if text.count(old) != 1:
-              raise SystemExit('generated lifecycle test literal drift')
-          frontend_test.write_text(text.replace(old, new, 1), encoding='utf-8')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
           PY
       - name: Install test dependencies
         run: python -m pip install -e '.[test]'
