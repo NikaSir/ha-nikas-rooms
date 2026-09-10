@@ -41,6 +41,20 @@ new = '        and "window.history.pushState" not in panel_source,\n'
 if old not in text:
     raise SystemExit("legacy pushState gate missing")
 text = text.replace(old, new, 1)
-
 checker_path.write_text(text, encoding="utf-8")
-print("Rooms A19 navigation gate aligned")
+
+harness_path = ROOT / "tests" / "registry_loader_harness.js"
+harness = harness_path.read_text(encoding="utf-8")
+old = '  assert.match(frontendSource, /<button class="title-return"/);\n'
+new = '''  assert.match(frontendSource, /<button class="nikas-shell__title title-return"/);
+  assert.match(frontendSource, /const NIKAS_SHELL_V2_VERSION = "2\\.1"/);
+  assert.match(frontendSource, /createNikasShellScrollBoundaryGuard/);
+  assert.match(frontendSource, /class="nikas-shell__viewport viewport"/);
+  assert.match(frontendSource, /class="nikas-shell__tabs tabs"/);
+'''
+if old not in harness:
+    raise SystemExit("legacy JS title assertion missing")
+harness = harness.replace(old, new, 1)
+harness_path.write_text(harness, encoding="utf-8")
+
+print("Rooms A19 repository and JS harness gates aligned")
