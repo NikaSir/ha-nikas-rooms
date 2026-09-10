@@ -16,8 +16,8 @@ spec:
     sha256: a9bceb0a48edd0932e6099149d55e5bde5bc9f6b427b906a4648c493229149a0
     source_ui_version: 10.8.18
   ui:
-    version: 11.0.14
-    standard: "1.9"
+    version: 11.0.15
+    standard: "2.2"
     frontend_bundle: nikas-rooms-panel.js
     autonomous: true
   data_model:
@@ -45,7 +45,21 @@ spec:
     policy: native_more_info_only
     direct_toggle: false
     direct_service_calls: false
+  shell:
+    contract_version: "2.1"
+    host_boundary: ha-panel
+    header_body_px: 60
+    bottom_nav_body_px: 64
+    content_max_width_px: 1280
+    scroll_boundary_guard: capture-non-passive-touchmove
+  refresh_action:
+    contract_version: "1.1"
+    minimum_busy_ms: 900
+    result_visible_ms: 1400
+    retry_during_result: true
+    disconnect_cleanup: true
   navigation:
+    contract_version: "1.2"
     house_target: runtime panel with web component nikas-house-overview
     internal_model: prebuilt internal views with button switching
     accepted_house_routes:

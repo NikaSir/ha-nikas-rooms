@@ -1,14 +1,14 @@
 {
-  "version": "1.9",
-  "navigation_contract_version": "1.1",
+  "version": "2.2",
+  "navigation_contract_version": "1.2",
   "role": "base",
-  "standard_path": "docs/NIKAS_SPECIALIZED_PANEL_UI_STANDARD.md",
+  "standard_path": "NIKAS_SPECIALIZED_PANEL_UI_STANDARD.md",
   "navigation_contract_path": "docs/NIKAS_PANEL_NAVIGATION_CONTRACT.md",
   "runtime_files": [
     "custom_components/nikas_rooms/frontend/nikas-rooms-panel.js"
   ],
   "production_entrypoint": "custom_components/nikas_rooms/frontend/nikas-rooms-panel.js",
-  "ui_version": "11.0.14",
+  "ui_version": "11.0.15",
   "panel_root": "/dashboard-rooms-v11",
   "entry_route": "/dashboard-rooms-v11/rooms",
   "preserved_route": "/dashboard-rooms/rooms",
@@ -21,5 +21,51 @@
     "cache_busting": "ui_version"
   },
   "data_source": "Home Assistant Area, Device, Entity and Label registries plus hass.states",
-  "command_policy": "No direct toggle or service call; open native Home Assistant more-info only"
+  "command_policy": "No direct toggle or service call; open native Home Assistant more-info only",
+  "canonical_repository": "NikaSir/ha-contract-generated-ui",
+  "standard_sha256": "2a15e5c2483f0fa959faff54cd29144ddb8c392e6da4546bd4c5034bf652c2c7",
+  "navigation_contract_sha256": "79923d2de82ef59ab76e37491f75ba7eb7e7c4c23e62d75142744159cae64229",
+  "build_source_files": [
+    "custom_components/nikas_rooms/frontend/src/shell-v2.js",
+    "custom_components/nikas_rooms/frontend/src/nikas-rooms-panel.js"
+  ],
+  "shell_source_sha256": "c7171560b68e2c4118b327c5e6a63c65e3410a4e1f10a02691e0d15560166e65",
+  "shell_contract": {
+    "version": "2.1",
+    "host_boundary": "ha-panel",
+    "header_body_px": 60,
+    "peer_selector_px": 52,
+    "bottom_nav_body_px": 64,
+    "content_max_width_px": 1280,
+    "coordinate_tolerance_px": 2,
+    "scroll_boundary_guard": "capture-non-passive-touchmove",
+    "specialized_tab_range": [
+      3,
+      5
+    ]
+  },
+  "refresh_action_feedback": {
+    "version": "1.1",
+    "status": "implemented",
+    "path": "docs/NIKAS_REFRESH_ACTION_CONTRACT.md",
+    "sha256": "69f73e9d5949a2564f2bcef3059039cc339c12c9e8dfe71cfa9f24a45b78d2a8",
+    "minimum_visible_ms": 900,
+    "result_visible_ms": 1400,
+    "duplicate_activation": "blocked_while_busy",
+    "retry_during_result": true,
+    "disconnect_cleanup": true,
+    "reduced_motion": "static_busy_surface",
+    "success_semantics": "required_registry_refresh_explicitly_succeeded",
+    "context_preservation": [
+      "header",
+      "active_route",
+      "viewport",
+      "scroll",
+      "zoom"
+    ]
+  },
+  "peer_device_selector": {
+    "present": false,
+    "reason": "Rooms is an area selector, not a peer physical-device selector"
+  }
 }

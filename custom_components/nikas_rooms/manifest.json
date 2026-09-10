@@ -1,13 +1,18 @@
 {
   "domain": "nikas_rooms",
   "name": "NikaS Rooms",
-  "codeowners": ["@NikaSir"],
+  "codeowners": [
+    "@NikaSir"
+  ],
   "config_flow": true,
-  "dependencies": ["http", "panel_custom"],
+  "dependencies": [
+    "http",
+    "panel_custom"
+  ],
   "documentation": "https://github.com/NikaSir/ha-nikas-rooms",
   "integration_type": "service",
   "iot_class": "calculated",
   "issue_tracker": "https://github.com/NikaSir/ha-nikas-rooms/issues",
   "requirements": [],
-  "version": "0.1.15"
+  "version": "0.1.16"
 }
