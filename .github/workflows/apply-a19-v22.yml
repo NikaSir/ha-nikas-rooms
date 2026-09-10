@@ -6,6 +6,7 @@ on:
       - fix/a19-standard-v2-2
     paths:
       - scripts/apply_a19_v22.py
+      - scripts/fix_a19_gate.py
       - .github/workflows/apply-a19-v22.yml
   workflow_dispatch:
 
@@ -28,6 +29,8 @@ jobs:
           node-version: "22"
       - name: Apply A19 migration
         run: python scripts/apply_a19_v22.py
+      - name: Align A19 repository gate
+        run: python scripts/fix_a19_gate.py
       - name: Build autonomous production bundle
         run: python scripts/build_frontend.py
       - name: Install test dependencies
@@ -41,7 +44,7 @@ jobs:
           node tests/registry_loader_harness.js
       - name: Remove one-shot and generated packaging files
         run: |
-          git rm -f --ignore-unmatch scripts/apply_a19_v22.py .github/workflows/apply-a19-v22.yml
+          git rm -f --ignore-unmatch scripts/apply_a19_v22.py scripts/fix_a19_gate.py .github/workflows/apply-a19-v22.yml
           rm -rf ./*.egg-info ./*/*.egg-info
       - name: Commit and push final migration
         run: |
