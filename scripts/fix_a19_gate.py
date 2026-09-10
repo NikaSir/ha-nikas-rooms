@@ -1,7 +1,22 @@
 #!/usr/bin/env python3
+import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+
+# The normal validation workflow already executes check_repository.py. A19 adds
+# the deterministic frontend build gate inside that checker, so keep the
+# repository workflow file byte-for-byte unchanged. This also avoids requiring
+# elevated GitHub App workflow-write scope for the final one-shot push.
+validate_rel = ".github/workflows/validate.yml"
+original_validate = subprocess.check_output(
+    ["git", "show", f"HEAD:{validate_rel}"],
+    cwd=ROOT,
+    text=True,
+    encoding="utf-8",
+)
+(ROOT / validate_rel).write_text(original_validate, encoding="utf-8")
+
 checker_path = ROOT / "scripts" / "check_repository.py"
 text = checker_path.read_text(encoding="utf-8")
 
@@ -57,4 +72,4 @@ if old not in harness:
 harness = harness.replace(old, new, 1)
 harness_path.write_text(harness, encoding="utf-8")
 
-print("Rooms A19 repository and JS harness gates aligned")
+print("Rooms A19 gates aligned; validate.yml restored unchanged")
