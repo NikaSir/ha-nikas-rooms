@@ -117,9 +117,26 @@ def test_frontend_resolves_the_runtime_new_house_panel() -> None:
     assert 'const HOUSE_PANEL_COMPONENT = "nikas-house-overview"' in text
     assert "hass?.panels" in text
     assert '"/dashboard-house-v12/home"' in text
+    assert '"/dashboard-house-v13/home"' in text
+    assert 'const SAFE_DEFAULT_ROUTE = "/dashboard-house-v13/home"' in text
     assert "detectedHouseRoute(this._hass)" in text
     assert '.tabs button[aria-label="Дом"]' in text
     assert "homeButton.dataset.path = route" in text
+
+
+def test_frontend_preserves_entity_area_override() -> None:
+    text = source()
+    assert "const effectiveArea = entity.area_id || device?.area_id || null" in text
+    assert "const referencedDeviceIds = new Set(" in text
+    assert "const relevantDevices = devices.filter" in text
+    assert "diagnosticDevices: relevantDevices" in text
+
+
+def test_disconnect_resets_animation_frame_handle() -> None:
+    text = source()
+    block = text[text.index("  disconnectedCallback() {") : text.index("\n\n  mountShell() {")]
+    assert "window.cancelAnimationFrame(this._stateFrame)" in block
+    assert "this._stateFrame = null;" in block
 
 
 def test_shipped_brand_asset_is_present() -> None:

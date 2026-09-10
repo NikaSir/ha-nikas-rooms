@@ -1,5 +1,5 @@
 const ELEMENT_NAME = "nikas-rooms-v11";
-const UI_VERSION = "11.0.13";
+const UI_VERSION = "11.0.14";
 const PANEL_ROOT = "/dashboard-rooms-v11";
 const ROOT_PATH = "/dashboard-rooms-v11/rooms";
 const ZOOM_KEY = "nikas.rooms.zoom.v1";
@@ -10,7 +10,7 @@ const SOURCE_ROUTE_TTL_MS = 30_000;
 const REGISTRY_TIMEOUT_MS = 8_000;
 const LABEL_REGISTRY_TIMEOUT_MS = 4_000;
 const REGISTRY_RETRY_DELAY_MS = 2_000;
-const SAFE_DEFAULT_ROUTE = "/dashboard-house-v11/home";
+const SAFE_DEFAULT_ROUTE = "/dashboard-house-v13/home";
 const HOUSE_PANEL_COMPONENT = "nikas-house-overview";
 const TAP_MOVE_THRESHOLD_PX = 6;
 const TAP_CLICK_GUARD_MS = 700;
@@ -151,6 +151,9 @@ function safeReturnRoute(value) {
     if (url.pathname === "/dashboard-house-v12" || url.pathname.startsWith("/dashboard-house-v12/")) {
       return "/dashboard-house-v12/home";
     }
+    if (url.pathname === "/dashboard-house-v13" || url.pathname.startsWith("/dashboard-house-v13/")) {
+      return "/dashboard-house-v13/home";
+    }
     if (url.pathname === "/dashboard-actions" || url.pathname.startsWith("/dashboard-actions/")) {
       return "/dashboard-actions/home";
     }
@@ -164,7 +167,9 @@ function safeReturnRoute(value) {
 }
 
 function isHouseRoute(value) {
-  return value === "/dashboard-house-v11/home" || value === "/dashboard-house-v12/home";
+  return value === "/dashboard-house-v11/home"
+    || value === "/dashboard-house-v12/home"
+    || value === "/dashboard-house-v13/home";
 }
 
 function detectedHouseRoute(hass) {
@@ -182,9 +187,9 @@ function detectedHouseRoute(hass) {
     const registered = safeReturnRoute(`/${String(panel?.url_path || "")}/home`);
     if (isHouseRoute(registered)) routes.push(registered);
   }
-  return routes.includes("/dashboard-house-v12/home")
-    ? "/dashboard-house-v12/home"
-    : routes[0] || null;
+  if (routes.includes("/dashboard-house-v13/home")) return "/dashboard-house-v13/home";
+  if (routes.includes("/dashboard-house-v12/home")) return "/dashboard-house-v12/home";
+  return routes[0] || null;
 }
 
 function resolveReturnRoute(panel) {
@@ -315,6 +320,7 @@ class NikasRoomsV11 extends HTMLElement {
     window.removeEventListener("resize", this._onResize);
     window.visualViewport?.removeEventListener?.("resize", this._onResize);
     if (this._stateFrame !== null) window.cancelAnimationFrame(this._stateFrame);
+    this._stateFrame = null;
     window.clearTimeout(this._toastTimer);
     window.clearTimeout(this._registryRetryTimer);
     this._registryRetryTimer = null;
@@ -791,15 +797,22 @@ class NikasRoomsV11 extends HTMLElement {
       const areaDeviceIds = new Set(areaDevices.map((device) => device.id));
       const areaEntities = entities.filter((entity) => {
         if (entity.disabled_by || entity.hidden_by || entity.hidden) return false;
-        const effectiveArea = entity.area_id || deviceMap.get(entity.device_id)?.area_id || null;
-        return effectiveArea === area.area_id
-          && (!entity.device_id || areaDeviceIds.has(entity.device_id));
+        const device = entity.device_id ? deviceMap.get(entity.device_id) : null;
+        if (entity.device_id && (!device || device.disabled_by)) return false;
+        const effectiveArea = entity.area_id || device?.area_id || null;
+        return effectiveArea === area.area_id;
       });
+      const referencedDeviceIds = new Set(
+        areaEntities.map((entity) => entity.device_id).filter(Boolean),
+      );
+      const relevantDeviceIds = new Set([...areaDeviceIds, ...referencedDeviceIds]);
+      const relevantDevices = devices.filter((device) =>
+        relevantDeviceIds.has(device.id) && !device.disabled_by);
 
-      const roomDevices = areaDevices.filter((device) => admitted(device));
+      const roomDevices = relevantDevices.filter((device) => admitted(device));
       const deviceIds = new Set(roomDevices.map((device) => device.id));
       const operationalDeviceIds = new Set(
-        areaDevices.filter((device) => operational(device)).map((device) => device.id),
+        relevantDevices.filter((device) => operational(device)).map((device) => device.id),
       );
 
       const roomEntities = areaEntities.filter((entity) => {
@@ -823,7 +836,7 @@ class NikasRoomsV11 extends HTMLElement {
         entities: roomEntities,
         summaryEntities,
         standalone: roomEntities.filter((entity) => !entity.device_id),
-        diagnosticDevices: areaDevices,
+        diagnosticDevices: relevantDevices,
         diagnosticEntities: areaEntities,
         diagnosticStandalone: areaEntities.filter((entity) => !entity.device_id),
         labelMap,
