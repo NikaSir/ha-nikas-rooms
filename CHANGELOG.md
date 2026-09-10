@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.16 / UI 11.0.15 — 2026-09-10
+
+- A19: migrated Rooms from NikaS UI Standard v1.9 / navigation v1.1 to v2.2 / v1.2.
+- Adopted vendored canonical Shell v2.1 with `ha-panel` ownership, 60 px Header, 64 px Bottom Nav and the iOS scroll-boundary guard.
+- Implemented Refresh Action Contract v1.1 with truthful success/error result states, 900 ms minimum busy feedback, 1400 ms completion feedback, retry and disconnect cleanup.
+- Registry refresh keeps the shell stable and restores the active route scroll position after a structural view rebuild.
+- Added deterministic source-to-bundle build validation.
+
 ## 0.1.15 — 2026-09-10 · UI 11.0.14
 
 - A08: после detach сбрасывается handle отменённого `requestAnimationFrame`, поэтому reconnect снова может планировать точечные обновления состояния.

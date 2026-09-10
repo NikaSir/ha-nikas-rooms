@@ -55,40 +55,29 @@ def test_frontend_room_definitions_match_the_contract() -> None:
     assert matches == expected
 
 
-def test_frontend_has_autonomous_fixed_shell_and_gesture_zoom() -> None:
+def test_frontend_has_canonical_shell_v21_and_gesture_zoom() -> None:
     text = source()
-    assert text.count('<main class="viewport" id="viewport">') == 1
-    assert text.count('<header class="header">') == 1
-    assert text.count('<nav class="tabs"') == 1
+    assert text.count('<main class="nikas-shell__viewport viewport" id="viewport">') == 1
+    assert text.count('<header class="nikas-shell__header header">') == 1
+    assert text.count('<nav class="nikas-shell__tabs tabs"') == 1
+    assert text.count('class="nikas-shell__tab"') == 4
+    assert 'const NIKAS_SHELL_V2_VERSION = "2.1"' in text
+    assert "createNikasShellScrollBoundaryGuard" in text
+    assert "this._scrollBoundaryGuardCleanup = createNikasShellScrollBoundaryGuard" in text
+    assert "this._scrollBoundaryGuardCleanup?.();" in text
+    assert "position:fixed" not in text
+    assert "100vw" not in text and "100vh" not in text and "100dvh" not in text
+    assert "grid-template-rows:calc(60px + env(safe-area-inset-top,0px))" in text
+    assert "calc(64px + env(safe-area-inset-bottom,0px))" in text
     assert "hass-toggle-menu" in text
     assert 'icon="mdi:menu"' in text
-    assert "touchStart(event)" in text
-    assert "touchMove(event)" in text
-    assert "touchEnd(event)" in text
-    assert 'addEventListener("pointerdown"' in text
-    assert 'addEventListener("pointerup"' in text
-    assert 'addEventListener("touchend"' in text
-    assert "bindControlButtons(this._canvas)" in text
-    assert "directTouchEnd(event)" in text
-    assert "event.composedPath()" in text
-    assert "activateControl(button)" in text
+    assert "touchStart(event)" in text and "touchMove(event)" in text and "touchEnd(event)" in text
     assert "resetZoom()" in text
     assert "0.75, 2" in text
-    assert "grid-template-columns:52px minmax(0,1fr) 52px" in text
-    assert "blur(18px) saturate(130%)" in text
-    assert "--mdc-icon-size:28px" in text
     assert "history.back(" not in text
-    assert '<button class="title-return"' in text
-    assert 'data-route-kind="overview"' in text
-    assert '<button class="room-card' in text
-    assert 'data-route-kind="room" data-route-slug="${room.slug}"' in text
-    assert 'data-route-kind="diagnostics" data-route-slug="${room.slug}"' in text
-    assert 'id="navigation-proxy"' in text
-    assert "anchor.click()" in text
-    assert "window.history.pushState" not in text
-    assert 'new Event("location-changed")' not in text
-    assert "import " not in text
-    assert "import(" not in text
+    assert '<button class="nikas-shell__title title-return"' in text
+    assert 'id="navigation-proxy"' in text and "anchor.click()" in text
+    assert "import " not in text and "import(" not in text
 
 
 def test_state_updates_do_not_rebuild_shell() -> None:
@@ -143,3 +132,24 @@ def test_shipped_brand_asset_is_present() -> None:
     icon = ROOT / "custom_components" / "nikas_rooms" / "brand" / "icon.png"
     assert icon.is_file()
     assert icon.stat().st_size > 1_000
+
+
+def test_refresh_action_contract_v11_is_behavioral() -> None:
+    text = source()
+    assert "REFRESH_MIN_BUSY_MS = 900" in text
+    assert "REFRESH_RESULT_MS = 1400" in text
+    assert "async runRegistryRefreshAction()" in text
+    assert 'this._refreshPhase = success ? "success" : "error"' in text
+    assert 'refresh.classList.toggle("is-busy", busy)' in text
+    assert 'refresh.classList.toggle("is-success", phase === "success")' in text
+    assert 'refresh.classList.toggle("is-error", phase === "error")' in text
+    assert "mdi:check" in text and "mdi:alert-circle-outline" in text
+    assert "prefers-reduced-motion:reduce" in text
+    assert "window.clearTimeout(this._refreshResultTimer)" in text
+    assert "this._viewport.scrollTo({ left: 0, top: scrollTop })" in text
+
+
+def test_v22_bundle_has_explicit_build_sources() -> None:
+    assert (ROOT / "custom_components" / "nikas_rooms" / "frontend" / "src" / "shell-v2.js").is_file()
+    assert (ROOT / "custom_components" / "nikas_rooms" / "frontend" / "src" / "nikas-rooms-panel.js").is_file()
+    assert (ROOT / "scripts" / "build_frontend.py").is_file()

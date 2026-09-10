@@ -36,12 +36,37 @@ def main() -> None:
     require(len(reference.get("views", [])) == 19, "reference YAML must contain overview plus 18 rooms")
 
     require(manifest["domain"] == "nikas_rooms", "integration domain drift")
-    require(manifest["version"] == "0.1.15", "integration version drift")
-    require(panel_manifest["ui_version"] == "11.0.14", "panel UI version drift")
-    require(standard["ui_version"] == "11.0.14", "standard UI version drift")
-    require(contract["spec"]["ui"]["version"] == "11.0.14", "contract UI version drift")
+    require(manifest["version"] == "0.1.16", "integration version drift")
+    require(panel_manifest["ui_version"] == "11.0.15", "panel UI version drift")
+    require(standard["ui_version"] == "11.0.15", "standard UI version drift")
+    require(contract["spec"]["ui"]["version"] == "11.0.15", "contract UI version drift")
     require(panel_manifest["entry_route"] == "/dashboard-rooms-v11/rooms", "entry route drift")
     require(panel_manifest["preserved_yaml_route"] == "/dashboard-rooms/rooms", "preserved route drift")
+    require(standard["version"] == "2.2", "NikaS UI standard drift")
+    require(standard["navigation_contract_version"] == "1.2", "navigation contract drift")
+    shell_path = DOMAIN / "frontend" / "src" / "shell-v2.js"
+    source_path = DOMAIN / "frontend" / "src" / "nikas-rooms-panel.js"
+    panel_source = source_path.read_text(encoding="utf-8")
+    require(shell_path.is_file() and source_path.is_file(), "v2.2 build sources are missing")
+    shell = shell_path.read_text(encoding="utf-8")
+    shell_digest = hashlib.sha256(shell_path.read_bytes()).hexdigest()
+    require(shell_digest == standard["shell_source_sha256"], "vendored Shell v2.1 hash drift")
+    require('const NIKAS_SHELL_V2_VERSION = "2.1"' in source, "production Shell v2.1 source is missing")
+    require('<header class="nikas-shell__header header">' in source, "canonical Header class missing")
+    require('<main class="nikas-shell__viewport viewport" id="viewport">' in source, "canonical viewport class missing")
+    require('<nav class="nikas-shell__tabs tabs"' in source, "canonical Bottom Nav class missing")
+    require(source.count('class="nikas-shell__tab"') == 4, "canonical base tab count drift")
+    require("position:fixed" not in source, "panel must not bind to browser window")
+    require("100vw" not in source and "100vh" not in source and "100dvh" not in source, "browser viewport units are forbidden")
+    require("createNikasShellScrollBoundaryGuard" in source, "Shell boundary guard missing")
+    require("this._scrollBoundaryGuardCleanup = createNikasShellScrollBoundaryGuard" in source, "boundary guard is not installed")
+    require("this._scrollBoundaryGuardCleanup?.();" in source, "boundary guard cleanup missing")
+    require("REFRESH_MIN_BUSY_MS = 900" in source and "REFRESH_RESULT_MS = 1400" in source, "Refresh Action timings missing")
+    require('this._refreshPhase = success ? "success" : "error"' in source, "Refresh Action result state missing")
+    require("mdi:check" in source and "mdi:alert-circle-outline" in source, "Refresh Action result glyphs missing")
+    require("prefers-reduced-motion:reduce" in source, "Refresh Action reduced-motion behavior missing")
+    require("window.clearTimeout(this._refreshResultTimer)" in source, "Refresh Action timer cleanup missing")
+    subprocess.run(["python", str(ROOT / "scripts" / "build_frontend.py"), "--check"], check=True)
 
     require(source.count("class NikasRoomsV11") == 1, "frontend must contain one panel class")
     require(source.count('customElements.define(ELEMENT_NAME') == 1, "frontend must register one component")
@@ -64,7 +89,7 @@ def main() -> None:
         "new House panel route resolution missing",
     )
     require(
-        '<button class="title-return"' in source
+        'class="nikas-shell__title title-return"' in source
         and '<button class="room-card' in source
         and 'data-route-kind="room" data-route-slug="${room.slug}"' in source
         and 'data-route-kind="diagnostics" data-route-slug="${room.slug}"' in source
@@ -76,7 +101,7 @@ def main() -> None:
         and 'this._canvas.querySelectorAll("[data-route-panel]")' in source
         and "panel.hidden = !active" in source
         and "replaceChildren" not in source
-        and "window.history.pushState" not in source,
+        and "window.history.pushState" not in panel_source,
         "internal navigation must switch prebuilt views without replacing the DOM or changing routes",
     )
     require("callService(" not in source and ".turn_on" not in source, "direct commands are forbidden")

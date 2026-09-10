@@ -244,7 +244,11 @@ const run = async () => {
     devices: [],
   });
   assert.match(detailMarkup, /data-route-kind="diagnostics" data-route-slug="bathroom"/);
-  assert.match(frontendSource, /<button class="title-return"/);
+  assert.match(frontendSource, /<button class="nikas-shell__title title-return"/);
+  assert.match(frontendSource, /const NIKAS_SHELL_V2_VERSION = "2\.1"/);
+  assert.match(frontendSource, /createNikasShellScrollBoundaryGuard/);
+  assert.match(frontendSource, /class="nikas-shell__viewport viewport"/);
+  assert.match(frontendSource, /class="nikas-shell__tabs tabs"/);
   assert.match(frontendSource, /data-route-kind="overview"/);
   assert.match(frontendSource, /navigation-proxy/);
   const internalRoomButton = fakeButton({ dataset: { routeKind: "room", routeSlug: "bathroom" } });
