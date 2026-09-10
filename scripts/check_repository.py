@@ -36,10 +36,10 @@ def main() -> None:
     require(len(reference.get("views", [])) == 19, "reference YAML must contain overview plus 18 rooms")
 
     require(manifest["domain"] == "nikas_rooms", "integration domain drift")
-    require(manifest["version"] == "0.1.14", "integration version drift")
-    require(panel_manifest["ui_version"] == "11.0.13", "panel UI version drift")
-    require(standard["ui_version"] == "11.0.13", "standard UI version drift")
-    require(contract["spec"]["ui"]["version"] == "11.0.13", "contract UI version drift")
+    require(manifest["version"] == "0.1.15", "integration version drift")
+    require(panel_manifest["ui_version"] == "11.0.14", "panel UI version drift")
+    require(standard["ui_version"] == "11.0.14", "standard UI version drift")
+    require(contract["spec"]["ui"]["version"] == "11.0.14", "contract UI version drift")
     require(panel_manifest["entry_route"] == "/dashboard-rooms-v11/rooms", "entry route drift")
     require(panel_manifest["preserved_yaml_route"] == "/dashboard-rooms/rooms", "preserved route drift")
 
@@ -57,6 +57,8 @@ def main() -> None:
     )
     require(
         'HOUSE_PANEL_COMPONENT = "nikas-house-overview"' in source
+        and 'SAFE_DEFAULT_ROUTE = "/dashboard-house-v13/home"' in source
+        and '"/dashboard-house-v13/home"' in source
         and '.tabs button[aria-label="Дом"]' in source
         and "homeButton.dataset.path = route" in source,
         "new House panel route resolution missing",

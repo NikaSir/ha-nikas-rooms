@@ -324,6 +324,73 @@ const run = async () => {
     "the synthetic click after direct touchend must be deduplicated",
   );
 
+  const v13NavigationPanel = makePanel({
+    panels: {
+      "dashboard-house-v12": {
+        component_name: "custom",
+        config: {
+          _panel_custom: { name: "nikas-house-overview" },
+          default_path: "/dashboard-house-v12/home",
+        },
+        url_path: "dashboard-house-v12",
+      },
+      "dashboard-house-v13": {
+        component_name: "custom",
+        config: {
+          _panel_custom: { name: "nikas-house-overview" },
+          default_path: "/dashboard-house-v13/home",
+        },
+        url_path: "dashboard-house-v13",
+      },
+    },
+  });
+  assert.equal(v13NavigationPanel.houseRoute(), "/dashboard-house-v13/home");
+
+  const lifecyclePanel = makePanel({});
+  lifecyclePanel._stateFrame = context.window.setTimeout(() => {}, 60_000);
+  lifecyclePanel.disconnectedCallback();
+  assert.equal(lifecyclePanel._stateFrame, null, "disconnect must release the cancelled frame handle");
+
+  const areaOverridePanel = new PanelClass();
+  areaOverridePanel._hass = { states: {} };
+  areaOverridePanel._registries = {
+    areas: [
+      { area_id: "kitchen", name: "Кухня" },
+      { area_id: "garage", name: "Гараж" },
+    ],
+    devices: [
+      {
+        id: "remote-device",
+        area_id: "garage",
+        name: "Выносной датчик",
+        labels: ["v_ekspluatatsii"],
+      },
+    ],
+    entities: [
+      {
+        entity_id: "sensor.kitchen_remote_temperature",
+        device_id: "remote-device",
+        area_id: "kitchen",
+        labels: [],
+      },
+      {
+        entity_id: "sensor.garage_native_temperature",
+        device_id: "remote-device",
+        labels: [],
+      },
+    ],
+    labels: [],
+  };
+  areaOverridePanel.buildRooms();
+  const kitchenRoom = areaOverridePanel.room("kitchen");
+  const garageRoom = areaOverridePanel.room("garage");
+  assert.ok(kitchenRoom.entities.some((entity) => entity.entity_id === "sensor.kitchen_remote_temperature"));
+  assert.ok(kitchenRoom.diagnosticEntities.some((entity) => entity.entity_id === "sensor.kitchen_remote_temperature"));
+  assert.ok(kitchenRoom.devices.some((device) => device.id === "remote-device"));
+  assert.ok(!kitchenRoom.entities.some((entity) => entity.entity_id === "sensor.garage_native_temperature"));
+  assert.ok(garageRoom.entities.some((entity) => entity.entity_id === "sensor.garage_native_temperature"));
+  assert.ok(!garageRoom.entities.some((entity) => entity.entity_id === "sensor.kitchen_remote_temperature"));
+
   const diagnosticsMarkupPanel = makePanel({
     states: {
       "sensor.attic_temperature": {
