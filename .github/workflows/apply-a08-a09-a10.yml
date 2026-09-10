@@ -24,6 +24,16 @@ jobs:
           node-version: '22'
       - name: Apply exact audit patch
         run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('scripts/apply_a08_a09_a10_patch.py')
+          text = path.read_text(encoding='utf-8')
+          old = "replace_once(FRONTEND, '          diagnosticDevices: areaDevices,', '          diagnosticDevices: relevantDevices,')"
+          new = "replace_once(FRONTEND, '        diagnosticDevices: areaDevices,', '        diagnosticDevices: relevantDevices,')"
+          if text.count(old) != 1:
+              raise SystemExit('diagnosticDevices matcher drift')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
           python scripts/apply_a08_a09_a10_patch.py
           python - <<'PY'
           from pathlib import Path
