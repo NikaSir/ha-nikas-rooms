@@ -39,14 +39,14 @@ def main() -> None:
     require(len(reference.get("views", [])) == 19, "reference YAML must contain overview plus 18 rooms")
 
     require(manifest["domain"] == "nikas_rooms", "integration domain drift")
-    require(manifest["version"] == "0.1.16", "integration version drift")
-    require(panel_manifest["ui_version"] == "11.0.15", "panel UI version drift")
-    require(standard["ui_version"] == "11.0.15", "standard UI version drift")
-    require(contract["spec"]["ui"]["version"] == "11.0.15", "contract UI version drift")
+    require(manifest["version"] == "0.1.17", "integration version drift")
+    require(panel_manifest["ui_version"] == "11.0.16", "panel UI version drift")
+    require(standard["ui_version"] == "11.0.16", "standard UI version drift")
+    require(contract["spec"]["ui"]["version"] == "11.0.16", "contract UI version drift")
     require(panel_manifest["entry_route"] == "/dashboard-rooms-v11/rooms", "entry route drift")
     require(panel_manifest["preserved_yaml_route"] == "/dashboard-rooms/rooms", "preserved route drift")
     require(standard["version"] == "2.2", "NikaS UI standard drift")
-    require(standard["navigation_contract_version"] == "1.2", "navigation contract drift")
+    require(standard["navigation_contract_version"] == "1.3", "navigation contract drift")
     shell_path = DOMAIN / "frontend" / "src" / "shell-v2.js"
     source_path = DOMAIN / "frontend" / "src" / "nikas-rooms-panel.js"
     panel_source = source_path.read_text(encoding="utf-8")

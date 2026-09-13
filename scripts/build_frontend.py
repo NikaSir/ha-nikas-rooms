@@ -9,7 +9,7 @@ FRONTEND = ROOT / "custom_components" / "nikas_rooms" / "frontend"
 SHELL = FRONTEND / "src" / "shell-v2.js"
 SOURCE = FRONTEND / "src" / "nikas-rooms-panel.js"
 OUTPUT = FRONTEND / "nikas-rooms-panel.js"
-BANNER = "/* NikaS Rooms UI v11.0.15 · NikaS UI Standard v2.2 · Shell v2.1 */\n"
+BANNER = "/* NikaS Rooms UI v11.0.16 · NikaS UI Standard v2.2 · Shell v2.1 */\n"
 
 def render() -> str:
     return BANNER + SHELL.read_text(encoding="utf-8").rstrip() + "\n\n" + SOURCE.read_text(encoding="utf-8").lstrip()

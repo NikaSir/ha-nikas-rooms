@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.17 · UI 11.0.16
+
+The Rooms overview title opens `/home/overview`. Room titles return to the Rooms overview; diagnostics titles return to their room. Saved or incoming navigation context cannot change these parents.
+
 ## 0.1.16 / UI 11.0.15 — 2026-09-10
 
 - A19: migrated Rooms from NikaS UI Standard v1.9 / navigation v1.1 to v2.2 / v1.2.
