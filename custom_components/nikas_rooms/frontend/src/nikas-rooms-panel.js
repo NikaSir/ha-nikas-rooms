@@ -1,12 +1,9 @@
 const ELEMENT_NAME = "nikas-rooms-v11";
-const UI_VERSION = "11.0.15";
+const UI_VERSION = "11.0.16";
 const PANEL_ROOT = "/dashboard-rooms-v11";
+const PARENT_ROUTE = "/home/overview";
 const ROOT_PATH = "/dashboard-rooms-v11/rooms";
 const ZOOM_KEY = "nikas.rooms.zoom.v1";
-const RETURN_ROUTE_KEY = "nikas.rooms.return_route.v1";
-const SOURCE_ROUTE_KEY = "nikas.specialized.source_route.v1";
-const SOURCE_ROUTE_AT_KEY = "nikas.specialized.source_route_at.v1";
-const SOURCE_ROUTE_TTL_MS = 30_000;
 const REGISTRY_TIMEOUT_MS = 8_000;
 const LABEL_REGISTRY_TIMEOUT_MS = 4_000;
 const REGISTRY_RETRY_DELAY_MS = 2_000;
@@ -194,51 +191,6 @@ function detectedHouseRoute(hass) {
   return routes[0] || null;
 }
 
-function resolveReturnRoute(panel) {
-  const current = new URL(window.location.href);
-  const explicit = ["return_to", "from"]
-    .map((key) => safeReturnRoute(current.searchParams.get(key)))
-    .find(Boolean) || null;
-  let handedOff = null;
-  let saved = null;
-  try {
-    const route = sessionStorage.getItem(SOURCE_ROUTE_KEY);
-    const timestampRaw = sessionStorage.getItem(SOURCE_ROUTE_AT_KEY);
-    sessionStorage.removeItem(SOURCE_ROUTE_KEY);
-    sessionStorage.removeItem(SOURCE_ROUTE_AT_KEY);
-    const timestamp = Number(timestampRaw);
-    const age = Date.now() - timestamp;
-    if (
-      route !== null
-      && timestampRaw !== null
-      && Number.isFinite(timestamp)
-      && age >= 0
-      && age <= SOURCE_ROUTE_TTL_MS
-    ) {
-      handedOff = safeReturnRoute(route);
-    }
-    saved = safeReturnRoute(sessionStorage.getItem(RETURN_ROUTE_KEY));
-  } catch (_error) {
-    handedOff = null;
-    saved = null;
-  }
-  let referrer = null;
-  try {
-    referrer = safeReturnRoute(document.referrer);
-  } catch (_error) {
-    referrer = null;
-  }
-  const configured = safeReturnRoute(
-    panel?._panel?.config?.parent_route || panel?.panel?.config?.parent_route,
-  );
-  const route = explicit || handedOff || saved || referrer || configured || SAFE_DEFAULT_ROUTE;
-  try {
-    sessionStorage.setItem(RETURN_ROUTE_KEY, route);
-  } catch (_error) {
-    // A hardened browser may disable storage; the captured in-memory route remains valid.
-  }
-  return route;
-}
 
 class NikasRoomsV11 extends HTMLElement {
   constructor() {
@@ -268,7 +220,6 @@ class NikasRoomsV11 extends HTMLElement {
     this._refreshRequestId = 0;
     this._refreshResultTimer = null;
     this._scrollBoundaryGuardCleanup = null;
-    this._returnRoute = null;
     this._houseRoute = SAFE_DEFAULT_ROUTE;
     this._touchPointers = new Set();
     this._tapSession = null;
@@ -345,7 +296,6 @@ class NikasRoomsV11 extends HTMLElement {
   mountShell() {
     if (this._mounted) return;
     this._mounted = true;
-    this._returnRoute = resolveReturnRoute(this);
     this.syncHouseRoute();
     this.shadowRoot.innerHTML = `
       <style>${this.styles()}${nikasShellV2Styles()}</style>
@@ -354,7 +304,7 @@ class NikasRoomsV11 extends HTMLElement {
           <button class="nikas-shell__side-action shell-button menu" type="button" aria-label="Меню Home Assistant">
             <ha-icon icon="mdi:menu"></ha-icon>
           </button>
-          <button class="nikas-shell__title title-return" type="button" data-path="${this._houseRoute || SAFE_DEFAULT_ROUTE}" aria-label="Вернуться">
+          <button class="nikas-shell__title title-return" type="button" data-path="${PARENT_ROUTE}" aria-label="Вернуться">
             <strong>Помещения</strong><small>UI v${UI_VERSION}</small>
           </button>
           <button class="nikas-shell__side-action nikas-shell__side-action--right shell-button refresh" type="button" aria-label="Обновить">
@@ -399,7 +349,6 @@ class NikasRoomsV11 extends HTMLElement {
     const route = detectedHouseRoute(this._hass);
     if (!route) return;
     this._houseRoute = route;
-    if (!this._returnRoute || isHouseRoute(this._returnRoute)) this._returnRoute = route;
     if (this._mounted) {
       this.updateHeader();
       const homeButton = this.shadowRoot?.querySelector('.tabs button[aria-label="Дом"]');
@@ -1392,7 +1341,7 @@ class NikasRoomsV11 extends HTMLElement {
       return {
         title: "Помещения",
         subtitle: `UI v${UI_VERSION}`,
-        backPath: this._houseRoute || SAFE_DEFAULT_ROUTE,
+        backPath: PARENT_ROUTE,
       };
     }
     if (route.kind === "diagnostics") {
@@ -1418,7 +1367,7 @@ class NikasRoomsV11 extends HTMLElement {
     if (strong.textContent !== model.title) strong.textContent = model.title;
     if (secondary.textContent !== model.subtitle) secondary.textContent = model.subtitle;
     if (route.kind === "overview") {
-      title.dataset.path = model.backPath || SAFE_DEFAULT_ROUTE;
+      title.dataset.path = model.backPath || PARENT_ROUTE;
       delete title.dataset.routeKind;
       delete title.dataset.routeSlug;
     } else {
@@ -1431,7 +1380,7 @@ class NikasRoomsV11 extends HTMLElement {
       ? "к обзору помещений"
       : route.kind === "diagnostics"
         ? `к помещению ${model.title}`
-        : "в панель Дом";
+        : "к главному обзору";
     const label = `${model.title} — вернуться ${destination}`;
     if (title.getAttribute("aria-label") !== label) title.setAttribute("aria-label", label);
   }

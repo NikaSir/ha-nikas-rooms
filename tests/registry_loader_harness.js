@@ -219,7 +219,7 @@ const run = async () => {
   assert.equal(navigationPanel.houseRoute(), "/dashboard-house-v12/home");
   assert.equal(
     navigationPanel.headerModel({ kind: "overview" }).backPath,
-    "/dashboard-house-v12/home",
+    "/home/overview",
   );
   assert.equal(
     navigationPanel.headerModel({ kind: "room", slug: "bathroom" }).backPath,
@@ -229,6 +229,36 @@ const run = async () => {
     navigationPanel.headerModel({ kind: "diagnostics", slug: "bathroom" }).backPath,
     "/dashboard-rooms-v11/room-bathroom",
   );
+  const titleChildren = { strong: {textContent:""}, small: {textContent:""} };
+  const titleAttributes = new Map();
+  const titleButton = { dataset:{}, disabled:false,
+    querySelector: selector => titleChildren[selector],
+    getAttribute: name => titleAttributes.get(name),
+    setAttribute: (name,value) => titleAttributes.set(name,value),
+    matches: () => false,
+  };
+  const originalShadow = navigationPanel.shadowRoot;
+  navigationPanel.shadowRoot = {querySelector: selector => selector === ".title-return" ? titleButton : null};
+  location.search = "?return_to=/dashboard-actions/home&from=/dashboard-infrastructure/overview";
+  context.document.referrer = "http://homeassistant.local/dashboard-actions/home";
+  storage.getItem = () => "/dashboard-actions/home";
+  const headerTargets = [];
+  const originalNavigate = navigationPanel.navigate;
+  navigationPanel.navigate = target => headerTargets.push(target);
+  navigationPanel.updateHeader({kind:"overview"});
+  assert.equal(titleButton.dataset.path,"/home/overview");
+  navigationPanel.activateControl(titleButton);
+  assert.deepEqual(headerTargets,["/home/overview"]);
+  navigationPanel.updateHeader({kind:"room",slug:"bathroom"});
+  assert.equal(titleButton.dataset.routeKind,"overview");
+  navigationPanel.updateHeader({kind:"diagnostics",slug:"bathroom"});
+  assert.equal(titleButton.dataset.routeKind,"room");
+  assert.equal(titleButton.dataset.routeSlug,"bathroom");
+  navigationPanel.navigate = originalNavigate;
+  navigationPanel.shadowRoot = originalShadow;
+  location.search = "";
+  context.document.referrer = "";
+  storage.getItem = () => null;
   const roomMarkup = navigationPanel.roomCard({
     slug: "bathroom",
     name: "Ванная",
