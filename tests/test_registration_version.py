@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import re
 import sys
+import tomllib
 from types import ModuleType, SimpleNamespace
 import unittest
 from unittest.mock import AsyncMock, patch
@@ -64,3 +65,10 @@ class RegistrationVersionTests(unittest.TestCase):
     def test_registered_url_cache_key_matches_shipped_ui(self):
         query = parse_qs(urlsplit(self.registration["module_url"]).query)
         self.assertEqual(query.get("v"), [self.ui_version])
+
+    def test_project_metadata_matches_integration_version(self):
+        project = tomllib.loads(
+            (COMPONENT.parents[1] / "pyproject.toml").read_text(encoding="utf-8")
+        )
+        manifest = json.loads((COMPONENT / "manifest.json").read_text(encoding="utf-8"))
+        self.assertEqual(project["project"]["version"], manifest["version"])
