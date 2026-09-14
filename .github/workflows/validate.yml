@@ -9,7 +9,8 @@ permissions:
   contents: read
 
 jobs:
-  validate:
+  repository-checks:
+    name: repository-checks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,3 +29,51 @@ jobs:
           python scripts/check_standard_documents.py
           python tests/test_standard_document_sync.py
 
+  hacs:
+    name: hacs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate HACS integration repository
+        uses: hacs/action@main
+        with:
+          category: integration
+          comment: false
+
+  hassfest:
+    name: hassfest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Home Assistant integration
+        uses: home-assistant/actions/hassfest@master
+
+  validate:
+    name: validate
+    if: ${{ always() }}
+    needs: [repository-checks, hacs, hassfest]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every validation job to pass
+        shell: bash
+        env:
+          NIKAS_JOB_RESULTS: ${{ toJSON(needs) }}
+        run: |
+          python3 - <<'PYGATE'
+          import json
+          import os
+          import sys
+
+          required = {"repository-checks", "hacs", "hassfest"}
+          results = json.loads(os.environ["NIKAS_JOB_RESULTS"])
+          if set(results) != required:
+              sys.exit("Required CI job results are missing or unexpected")
+          failed = {
+              name: results[name].get("result")
+              for name in sorted(required)
+              if results[name].get("result") != "success"
+          }
+          if failed:
+              sys.exit(f"Required CI jobs did not succeed: {failed}")
+          print("All required CI jobs succeeded.")
+          PYGATE
