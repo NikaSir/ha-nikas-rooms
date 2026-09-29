@@ -1,5 +1,5 @@
 const ELEMENT_NAME = "nikas-rooms-v11";
-const UI_VERSION = "11.0.16";
+const UI_VERSION = "11.0.17";
 const PANEL_ROOT = "/dashboard-rooms-v11";
 const PARENT_ROUTE = "/home/overview";
 const ROOT_PATH = "/dashboard-rooms-v11/rooms";
@@ -107,6 +107,10 @@ function titleOfEntity(entity, hass) {
     || entity?.original_name
     || entity?.entity_id
     || "Сущность";
+}
+
+function deviceAreaId(device, deviceMap) {
+  return device?.area_id || deviceMap.get(device?.parent_device_id)?.area_id || null;
 }
 
 function titleOfDevice(device) {
@@ -791,13 +795,13 @@ class NikasRoomsV11 extends HTMLElement {
       }
 
       const areaDevices = devices.filter((device) =>
-        device.area_id === area.area_id && !device.disabled_by);
+        deviceAreaId(device, deviceMap) === area.area_id && !device.disabled_by);
       const areaDeviceIds = new Set(areaDevices.map((device) => device.id));
       const areaEntities = entities.filter((entity) => {
         if (entity.disabled_by || entity.hidden_by || entity.hidden) return false;
         const device = entity.device_id ? deviceMap.get(entity.device_id) : null;
         if (entity.device_id && (!device || device.disabled_by)) return false;
-        const effectiveArea = entity.area_id || device?.area_id || null;
+        const effectiveArea = entity.area_id || deviceAreaId(device, deviceMap);
         return effectiveArea === area.area_id;
       });
       const referencedDeviceIds = new Set(
