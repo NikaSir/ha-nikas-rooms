@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.18 · UI 11.0.17
+
+- Resolve a child device’s room through its parent when it has no explicit area.
+- Preserve entity and device area overrides, existing label policy, and disabled/hidden exclusions.
+- Rebuild the panel with a new cache key and add executable child-device room regression coverage.
+
 ## 0.1.17 · UI 11.0.16
 
 The Rooms overview title opens `/home/overview`. Room titles return to the Rooms overview; diagnostics titles return to their room. Saved or incoming navigation context cannot change these parents.

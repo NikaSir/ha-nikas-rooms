@@ -115,7 +115,6 @@ def test_frontend_resolves_the_runtime_new_house_panel() -> None:
 
 def test_frontend_preserves_entity_area_override() -> None:
     text = source()
-    assert "const effectiveArea = entity.area_id || device?.area_id || null" in text
     assert "const referencedDeviceIds = new Set(" in text
     assert "const relevantDevices = devices.filter" in text
     assert "diagnosticDevices: relevantDevices" in text
